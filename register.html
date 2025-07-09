@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>注册帐号</title>
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <div class="register-container">
+        <div class="title-bar" style="-webkit-app-region: drag">
+            <div class="title">注册帐号</div>
+            <div class="window-controls">
+                <button id="close-btn" class="window-control">×</button>
+            </div>
+        </div>
+        <div class="register-content">
+            <div id="register-form">
+                <h2>欢迎注册！</h2>
+                <p>请填写以下信息来完成注册。</p>
+                <div class="form-group">
+                    <label for="nickname">昵称:</label>
+                    <input type="text" id="nickname" placeholder="请输入您的昵称">
+                </div>
+                <div class="form-group">
+                    <label for="password">密码:</label>
+                    <input type="password" id="password" placeholder="请输入您的密码">
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">确认密码:</label>
+                    <input type="password" id="confirm-password" placeholder="请再次输入您的密码">
+                </div>
+                <button id="register-btn" class="register-button">立即注册</button>
+                <div id="error-message" class="error-message" style="display: none; margin-top: 10px;"></div>
+            </div>
+            <div id="success-message" style="display: none; text-align: center;">
+                <h2>注册成功！</h2>
+                <p>您的新 QQ 号码是: <strong id="new-qq-number"></strong></p>
+                <p>请牢记您的帐号和密码。</p>
+                <button id="close-success-btn" class="register-button">关闭</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const nicknameInput = document.getElementById('nickname');
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm-password');
+        const registerBtn = document.getElementById('register-btn');
+        const errorDiv = document.getElementById('error-message');
+        
+        document.getElementById('close-btn').addEventListener('click', () => window.electronAPI.closeRegisterWindow());
+        
+        registerBtn.addEventListener('click', async () => {
+            const nickname = nicknameInput.value;
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+
+            if (!nickname || !password || !confirmPassword) {
+                errorDiv.textContent = '所有字段都不能为空。';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                errorDiv.textContent = '两次输入的密码不一致。';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            errorDiv.style.display = 'none';
+
+            const result = await window.electronAPI.register(nickname, password);
+
+            if (result.success) {
+                document.getElementById('register-form').style.display = 'none';
+                document.getElementById('new-qq-number').textContent = result.qq;
+                document.getElementById('success-message').style.display = 'block';
+                document.getElementById('close-success-btn').addEventListener('click', () => window.electronAPI.closeRegisterWindow());
+            } else {
+                errorDiv.textContent = result.message;
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html> 

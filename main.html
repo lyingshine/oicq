@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>QQ2008</title>
+    <link rel="stylesheet" href="vendor/fontawesome/all.min.css">
+    <link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+    <div class="title-bar">
+        <span class="title">QQ2008</span>
+        <div class="window-controls">
+            <button id="minimize-btn" class="window-control">-</button>
+            <button id="maximize-btn" class="window-control">□</button>
+            <button id="close-btn" class="window-control">×</button>
+        </div>
+    </div>
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="sidebar-icons-container">
+                <div class="sidebar-icon icon-penguin active" title="联系人"></div>
+                <div class="sidebar-icon icon-qzone" title="QQ空间"></div>
+                <div class="sidebar-icon icon-photo" title="相册"></div>
+                <div class="sidebar-icon icon-file" title="文件"></div>
+                <div class="sidebar-icon icon-yixin" title="易信"></div>
+            </div>
+            <div class="sidebar-scroll">
+                <div class="scroll-up"></div>
+                <div class="scroll-down"></div>
+            </div>
+        </div>
+        <div class="main-panel">
+            <div class="header">
+                            <div class="avatar-container">
+                <div class="avatar-wrapper">
+                    <img src="https://i.pravatar.cc/50?u=a" alt="Avatar" class="main-avatar" id="main-avatar-img">
+                    <div class="avatar-frame main-avatar-frame"></div>
+                    <div class="status-icon online"></div>
+                </div>
+            </div>
+                <div class="user-details">
+                    <div class="user-line-1">
+                       <span class="online-status-icon"></span>
+                       <span class="nickname">落英缤纷</span>
+                       <span class="status-text">[我在线上]</span>
+                   </div>
+                    <div class="user-line-2">
+                        <span class="icon-level"></span>
+                        <span class="level-text">54</span>
+                        <span class="icon-mail"></span>
+                        <span class="mail-text">5</span>
+                        <span class="icon-qcoin"></span>
+                        <span class="qcoin-text">80</span>
+                    </div>
+                    <div class="user-signature" title="点击修改个性签名">
+                        <span id="signature-text">世界上没有什么事是一顿火锅不能解决的</span>
+                        <span class="edit-signature-icon"></span>
+                    </div>
+                </div>
+                <div class="weather-icon" title="天气：北京 晴 26°C"></div>
+            </div>
+            <div class="search-bar">
+                <div class="search-icon"></div>
+                <input type="text" placeholder="搜索我的好友...">
+                <div class="search-dropdown-icon"></div>
+            </div>
+            <div class="tab-header">
+               <span>QQ好友</span>
+               <span class="tab-header-options">
+                   <span class="tab-option" title="添加分组">+</span>
+                   <span class="tab-option" title="显示设置">≡</span>
+               </span>
+            </div>
+            <div class="friend-list">
+                <!-- Friend list generates here -->
+            </div>
+            <div class="bottom-tabs">
+                <button class="tab-button active">通讯录</button>
+                <button class="tab-button">QQ群</button>
+                <button class="tab-button">最近联系人</button>
+            </div>
+            <div class="footer">
+                <div class="footer-icons-left">
+                    <span class="footer-icon icon-menu" id="main-menu-btn" title="主菜单"></span>
+                    <span class="footer-icon icon-find-friend" title="查找好友"></span>
+                    <span class="footer-icon icon-tools" title="系统设置"></span>
+                    <span class="footer-icon icon-message" title="消息管理"></span>
+                    <span class="footer-icon icon-antivirus" title="安全中心"></span>
+                </div>
+                <div class="footer-icons-right">
+                    <button class="footer-button"><span class="icon-find-button"></span>查找</button>
+                </div>
+            </div>
+
+            <div class="main-menu-popup" id="main-menu-popup">
+                <ul>
+                    <li id="switch-account-btn"><i class="fas fa-exchange-alt"></i> 切换账号</li>
+                    <li><i class="fas fa-sign-out-alt"></i> 退出登录</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inform the main process that the page is ready
+            window.electronAPI.mainPageReady();
+
+            const friendListContainer = document.querySelector('.friend-list');
+            if (!friendListContainer) return;
+
+            const friendGroups = [
+                {
+                    name: "我的好友",
+                    online: 6,
+                    total: 10,
+                    open: true, // Default open
+                    friends: [
+                        { name: "落英缤纷", signature: "QQ For Mac", avatar: "https://i.pravatar.cc/40?u=a", online: true },
+                        { name: "叼客机器人", signature: "唠嗑唠叨叨...", avatar: "https://i.pravatar.cc/40?u=b", online: true },
+                        { name: "巴黎左岸", signature: "自然卷，快乐", avatar: "https://i.pravatar.cc/40?u=c", online: true },
+                        { name: "盛夏光年", signature: "养心莫若寡欲", avatar: "https://i.pravatar.cc/40?u=d", online: true },
+                        { name: "浅吟低唱", signature: "陌上花开缓缓归", avatar: "https://i.pravatar.cc/40?u=e", online: true },
+                        { name: "隐约", signature: "君子于其言", avatar: "https://i.pravatar.cc/40?u=f", online: true },
+                        { name: "路1979", signature: "世界上有梦想", avatar: "https://i.pravatar.cc/40?u=g", online: false },
+                        { name: "贝贝", signature: "即将翻开新的牙", avatar: "https://i.pravatar.cc/40?u=h", online: false },
+                        { name: "夜未央", signature: "藏富于民善莫大焉", avatar: "https://i.pravatar.cc/40?u=i", online: false },
+                        { name: "光之子", signature: "如果没有冬天", avatar: "https://i.pravatar.cc/40?u=j", online: false },
+                    ]
+                },
+                {
+                    name: "QQ空间温馨提示",
+                    online: 1,
+                    total: 1,
+                    open: false,
+                    friends: [
+                       { name: "Hero", signature: "QQ空间温馨提示", avatar: "https://i.pravatar.cc/40?u=k", online: true },
+                    ]
+                }
+            ];
+
+            function renderFriendList() {
+                friendListContainer.innerHTML = '';
+                friendGroups.forEach(groupData => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = `friend-group ${groupData.open ? 'open' : ''}`;
+
+                    const header = document.createElement('div');
+                    header.className = 'group-header';
+                    header.innerHTML = `
+                        <div class="group-arrow"></div>
+                        <span>${groupData.name} [${groupData.online}/${groupData.total}]</span>
+                    `;
+
+                    const friendsContainer = document.createElement('div');
+                    friendsContainer.className = 'friends-container';
+
+                    groupData.friends.forEach(friendData => {
+                        const friendDiv = document.createElement('div');
+                        friendDiv.className = `friend-item ${friendData.online ? '' : 'offline'}`;
+                        friendDiv.innerHTML = `
+                            <div class="friend-avatar-wrapper">
+                                <img src="${friendData.avatar}" alt="Avatar">
+                                ${friendData.online ? '<span class="friend-status-icon"></span>' : ''}
+                            </div>
+                            <div class="friend-details">
+                                <span class="friend-name">${friendData.name}</span>
+                                <span class="friend-signature">${friendData.signature}</span>
+                            </div>
+                        `;
+                        friendsContainer.appendChild(friendDiv);
+                        
+                        // 添加好友点击事件
+                        friendDiv.addEventListener('click', () => {
+                            alert(`将与 ${friendData.name} 开始聊天`);
+                        });
+                    });
+
+                    groupDiv.appendChild(header);
+                    groupDiv.appendChild(friendsContainer);
+                    friendListContainer.appendChild(groupDiv);
+
+                    header.addEventListener('click', () => {
+                        groupDiv.classList.toggle('open');
+                    });
+                });
+            }
+
+            renderFriendList();
+            
+            // 个性签名编辑功能
+            const signatureText = document.getElementById('signature-text');
+            const editSignature = document.querySelector('.user-signature');
+            const mainMenuBtn = document.getElementById('main-menu-btn');
+            const mainMenuPopup = document.getElementById('main-menu-popup');
+            const switchAccountBtn = document.getElementById('switch-account-btn');
+            
+            if (mainMenuBtn && mainMenuPopup) {
+                mainMenuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    mainMenuPopup.style.display = mainMenuPopup.style.display === 'block' ? 'none' : 'block';
+                });
+
+                switchAccountBtn.addEventListener('click', () => {
+                    window.electronAPI.switchAccount();
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (mainMenuPopup.style.display === 'block' && !mainMenuPopup.contains(e.target)) {
+                        mainMenuPopup.style.display = 'none';
+                    }
+                });
+            }
+            
+            if (signatureText && editSignature) {
+                editSignature.addEventListener('click', () => {
+                    const currentText = signatureText.textContent;
+                    const newText = prompt('请输入新的个性签名', currentText);
+                    if (newText && newText.trim() !== '') {
+                        signatureText.textContent = newText;
+                    }
+                });
+            }
+        });
+
+        document.getElementById('minimize-btn').addEventListener('click', () => window.electronAPI.minimizeWindow());
+        document.getElementById('maximize-btn').addEventListener('click', () => window.electronAPI.maximizeWindow());
+        document.getElementById('close-btn').addEventListener('click', () => window.electronAPI.closeWindow());
+
+        const avatarImg = document.getElementById('main-avatar-img');
+
+        // On page load, get and set saved avatar
+        window.electronAPI.getAvatarPath().then(path => {
+            if (path) {
+                avatarImg.src = path;
+            }
+        });
+
+        // Add click listener to change avatar
+        avatarImg.addEventListener('click', async () => {
+            const filePath = await window.electronAPI.openFileDialog();
+            if (filePath) {
+                avatarImg.src = filePath;
+            }
+        });
+    </script>
+</body>
+</html> 
