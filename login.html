@@ -7,61 +7,59 @@
     <link rel="stylesheet" href="styles/style.css">
 </head>
 <body class="login-page">
-    <div class="login-container">
-        <!-- Draggable top bar -->
-        <div class="top-drag-bar"></div>
+    <!-- Draggable top bar -->
+    <div class="top-drag-bar"></div>
 
-        <div class="close-button" id="close-btn"></div>
-        <div class="minimize-button" id="minimize-btn"></div>
-        <div class="settings-button"></div>
+    <div class="close-button" id="close-btn"></div>
+    <div class="minimize-button" id="minimize-btn"></div>
+    <div class="settings-button"></div>
 
-        <div class="logo-area">
-            <!-- Logo or banner can go here -->
+    <div class="logo-area">
+        <!-- Logo or banner can go here -->
+    </div>
+
+    <div class="login-form">
+        <div class="avatar-section">
+            <img src="assets/logo.png" alt="Avatar" class="avatar">
         </div>
-
-        <div class="login-form">
-            <div class="avatar-section">
-                <img src="assets/logo.png" alt="Avatar" class="avatar">
+        <div class="input-section">
+            <div class="input-wrapper">
+                <input type="text" id="qq-number" placeholder="QQ号码/手机/邮箱">
+                <a href="#" id="open-register-link" class="link-right">注册帐号</a>
             </div>
-            <div class="input-section">
-                <div class="input-wrapper">
-                    <input type="text" id="qq-number" placeholder="QQ号码/手机/邮箱">
-                    <a href="#" id="open-register-link" class="link-right">注册帐号</a>
-                </div>
-                <div class="input-wrapper">
-                    <input type="password" id="qq-password" placeholder="密码">
-                    <a href="#" class="link-right">找回密码</a>
-                </div>
+            <div class="input-wrapper">
+                <input type="password" id="qq-password" placeholder="密码">
+                <a href="#" class="link-right">找回密码</a>
             </div>
         </div>
+    </div>
 
-        <div class="options-section">
-            <div class="checkbox-wrapper">
-                <input type="checkbox" id="auto-login">
-                <label for="auto-login">自动登录</label>
-            </div>
-            <div class="checkbox-wrapper">
-                <input type="checkbox" id="remember-password">
-                <label for="remember-password">记住密码</label>
-            </div>
-            <div class="status-selector">
-                <i class="fas fa-user-circle"></i>
-                <span>在线</span>
-                <i class="fas fa-chevron-down"></i>
-            </div>
+    <div class="options-section">
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="auto-login">
+            <label for="auto-login">自动登录</label>
         </div>
+        <div class="checkbox-wrapper">
+            <input type="checkbox" id="remember-password">
+            <label for="remember-password">记住密码</label>
+        </div>
+        <div class="status-selector">
+            <i class="fas fa-user-circle"></i>
+            <span>在线</span>
+            <i class="fas fa-chevron-down"></i>
+        </div>
+    </div>
 
-        <div class="footer-section">
-            <button id="login-btn" class="login-button">登    录</button>
-        </div>
-        
-        <div id="error-message" class="error-message"></div>
+    <div class="footer-section">
+        <button id="login-btn" class="login-button">登    录</button>
+    </div>
+    
+    <div id="error-message" class="error-message"></div>
 
-        <div class="bottom-links">
-            <a href="#">安全模式</a>
-            <span>|</span>
-            <a href="#">高级设置</a>
-        </div>
+    <div class="bottom-links">
+        <a href="#">安全模式</a>
+        <span>|</span>
+        <a href="#">高级设置</a>
     </div>
 
     <script>
@@ -69,6 +67,46 @@
         const usernameInput = document.getElementById('qq-number');
         const passwordInput = document.getElementById('qq-password');
         const errorMessageDiv = document.getElementById('error-message');
+        const rememberPasswordCheckbox = document.getElementById('remember-password');
+        const autoLoginCheckbox = document.getElementById('auto-login');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const rememberedUser = localStorage.getItem('rememberedUser');
+            if (rememberedUser) {
+                try {
+                    const userData = JSON.parse(rememberedUser);
+                    if (userData && userData.username && userData.password) {
+                        usernameInput.value = userData.username;
+                        passwordInput.value = userData.password;
+                        rememberPasswordCheckbox.checked = true;
+                        
+                        // 设置一个标志，防止多次自动登录
+                        let hasAutoLogin = localStorage.getItem('hasAutoLogin');
+                        if (userData.autoLogin && !hasAutoLogin) {
+                            autoLoginCheckbox.checked = true;
+                            // 记录已经进行了自动登录
+                            localStorage.setItem('hasAutoLogin', 'true');
+                            console.log('执行自动登录');
+                            // 使用延时，确保页面完全加载
+                            setTimeout(() => loginBtn.click(), 100);
+                        }
+                    }
+                } catch (error) {
+                    console.error('解析记住的用户信息失败:', error);
+                    localStorage.removeItem('rememberedUser');
+                }
+            }
+            
+            // 监听窗口关闭事件，清除自动登录标志
+            window.addEventListener('beforeunload', () => {
+                localStorage.removeItem('hasAutoLogin');
+            });
+        });
+
+        window.electronAPI.onLoginFailed((message) => {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.style.display = 'block';
+        });
 
         document.getElementById('open-register-link').addEventListener('click', (event) => {
             event.preventDefault();
@@ -90,12 +128,18 @@
 
             errorMessageDiv.style.display = 'none';
 
-            const result = await window.electronAPI.login(username, password);
-            
-            if (!result.success) {
-                errorMessageDiv.textContent = result.message;
-                errorMessageDiv.style.display = 'block';
+            if (rememberPasswordCheckbox.checked) {
+                const user = {
+                    username: usernameInput.value,
+                    password: passwordInput.value,
+                    autoLogin: autoLoginCheckbox.checked
+                };
+                localStorage.setItem('rememberedUser', JSON.stringify(user));
+            } else {
+                localStorage.removeItem('rememberedUser');
             }
+
+            window.electronAPI.login(username, password);
         });
     </script>
 </body>

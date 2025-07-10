@@ -5,16 +5,23 @@ html, body {
     padding: 0;
     font-family: 'Microsoft YaHei', 'SimSun', sans-serif;
     background: transparent; /* Make the body background transparent */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 body {
     display: flex;
     flex-direction: column;
     background-color: transparent;
+    /* 添加硬件加速，减少闪烁 */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+    will-change: transform;
 }
 
 /* Universal Icon Rule */
-[class*="icon-"]::before, [class*="icon-"]::after, .icon-level, .icon-mail, .icon-qcoin, .weather-icon, .search-icon, .search-dropdown-icon, .scroll-up, .scroll-down, .footer-icon, .footer-button span {
+[class*="icon-"]::before, [class*="icon-"]::after, .search-icon, .search-dropdown-icon, .scroll-up, .scroll-down, .footer-icon, .footer-button span {
     display: inline-block;
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
@@ -27,22 +34,24 @@ body {
 
 /* Title Bar */
 .title-bar {
-    height: 30px;
-    line-height: 30px;
-    background: linear-gradient(to bottom, #a9d5f7, #75b9f1);
+    height: 32px;
+    line-height: 32px;
+    background: linear-gradient(to bottom, #bfe1ff, #89c5f7);
     border-bottom: 1px solid #4e94d8;
     color: #003366;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 8px;
+    padding: 0 10px;
     flex-shrink: 0;
     -webkit-app-region: drag;
-    border-top-left-radius: 5px;
-    border-top-right-radius: 5px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 .title {
     font-weight: bold;
+    font-size: 14px;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .window-controls {
@@ -54,13 +63,13 @@ body {
     height: 20px;
     border: 1px solid #6fa8dc;
     background-color: #a2d2f7;
-    margin-left: 3px;
+    margin-left: 4px;
     color: #003366;
-    font-size: 16px;
+    font-size: 14px;
     cursor: pointer;
     line-height: 18px;
     text-align: center;
-    border-radius: 2px;
+    border-radius: 3px;
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
 }
 .window-control:hover {
@@ -72,32 +81,41 @@ body {
     flex-grow: 1;
     display: flex;
     background-color: #3f98d9;
-    border-bottom-left-radius: 5px;
-    border-bottom-right-radius: 5px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+    /* 添加硬件加速，减少闪烁 */
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
 }
 
 /* Sidebar */
 .sidebar {
     width: 40px;
-    background: #50a5e6;
+    background: linear-gradient(to right, #4998e0, #5aabee);
     border-right: 1px solid #3a8ccc;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     flex-shrink: 0;
-    border-bottom-left-radius: 5px;
+    border-bottom-left-radius: 6px;
+    box-shadow: inset -1px 0 2px rgba(0,0,0,0.05);
 }
 .sidebar-icons-container {
-    padding-top: 5px;
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
 .sidebar-icon {
     width: 40px; height: 40px;
     cursor: pointer;
     position: relative;
-    display:flex;
+    display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.2s ease;
 }
 .sidebar-icon::before {
     width: auto; height: auto;
@@ -108,12 +126,13 @@ body {
 .sidebar-icon.active {
     background-color: rgba(255, 255, 255, 0.4);
     border: 1px solid #a4c3e5;
-    border-radius: 3px;
+    border-radius: 4px;
     box-sizing: border-box;
     box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
 }
 .sidebar-icon:hover {
     background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
 }
 .icon-penguin::before { content: "\f007"; } /* fa-user */
 .icon-qzone::before { content: "\f005"; } /* fa-star */
@@ -121,10 +140,11 @@ body {
 .icon-file::before { content: "\f15b"; } /* fa-file */
 .icon-yixin::before { content: "\f0e0"; } /* fa-envelope */
 .sidebar-scroll {
-    padding-bottom: 5px;
+    padding-bottom: 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 8px;
 }
 .scroll-up, .scroll-down {
     width: 20px; height: 18px;
@@ -133,9 +153,11 @@ body {
     text-align: center;
     font-size: 14px;
     color: #fff;
+    transition: all 0.2s ease;
 }
 .scroll-up:hover, .scroll-down:hover {
     opacity: 1;
+    transform: scale(1.1);
 }
 .scroll-up::before { content: "\f077"; } /* fa-angle-up */
 .scroll-down::before { content: "\f078"; } /* fa-angle-down */
@@ -151,18 +173,23 @@ body {
     margin: 0 4px 4px 0;
     border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1) inset;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.15) inset;
 }
 
 /* Header */
 .header {
-    background: linear-gradient(to bottom, #f0f8ff, #d6e7f7);
-    padding: 8px;
+    background: linear-gradient(to bottom, #f0f8ff, #e0eefb);
+    padding: 12px;
     display: flex;
     align-items: center;
     position: relative;
     border-bottom: 1px solid #c5ddec;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    flex-wrap: nowrap;
+    gap: 12px;
+    min-height: 72px; /* 确保头部区域有足够高度 */
 }
+
 .header::after {
     content: '';
     position: absolute;
@@ -173,24 +200,51 @@ body {
     background: linear-gradient(to top, rgba(255,255,255,0.15), transparent);
     opacity: 0.2;
 }
+
+/* 用户信息区块 - 整体容器 */
+.user-info-container {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* 头像容器 */
 .avatar-container {
     position: relative;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
     margin-right: 10px;
 }
+
 .avatar-wrapper {
     position: relative;
+    width: 100%;
+    height: 100%;
 }
+
 .main-avatar {
-    width: 52px; height: 52px;
-    border-radius: 5px;
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
     border: none;
-    box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.15);
     cursor: pointer;
     transition: all 0.2s ease;
+    object-fit: cover;
 }
+
 .main-avatar:hover {
-    box-shadow: 0 0 5px rgba(117, 185, 241, 0.5);
+    box-shadow: 0 0 8px rgba(117, 185, 241, 0.8);
+    transform: scale(1.02);
 }
+
 .main-avatar-frame {
     position: absolute;
     top: -1px;
@@ -198,277 +252,355 @@ body {
     right: -1px;
     bottom: -1px;
     border: 1px solid #a4c3e5;
-    border-radius: 6px;
+    border-radius: 7px;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
     pointer-events: none;
 }
-.status-icon.online {
-    position: absolute;
-    width: auto; height: auto;
-    bottom: 2px; right: 2px;
-    color: #28a745; /* Green color for online */
-    font-size: 12px;
-    background-color: white;
-    border-radius: 50%;
-}
-.status-icon.online::before {
-    content: "\f111"; /* fa-circle */
-}
+
+/* 用户详细信息 */
 .user-details {
-    flex-grow: 1;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    width: 100%; /* 确保占满可用空间 */
 }
+
+/* 用户昵称和个性签名样式 */
 .user-line-1 {
-    display: flex; align-items: center;
+    display: flex; 
+    align-items: center;
+    margin-bottom: 3px;
 }
-.online-status-icon {
-    color: #28a745;
-    margin-right: 4px;
-}
-.online-status-icon::before {
-    content: "\f111"; /* fa-circle */
-}
+
 .nickname {
-    color: #000;
+    color: #333;
     font-weight: bold;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+    margin-right: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px; /* 增加昵称最大宽度 */
 }
+
 .status-text {
     color: #666;
-    margin-left: 4px;
-}
-.user-line-2 {
-    font-size: 11px; color: #666;
-    margin-top: 5px;
-    display: flex;
-    align-items: center;
-}
-.user-line-2 > span { margin-right: 3px; }
-.icon-level, .icon-mail, .icon-qcoin {
-    font-size: 14px;
-    color: #f0ad4e;
-}
-.icon-level::before { content: "\f0a3"; } /* fa-certificate */
-.icon-mail::before { content: "\f0e0"; } /* fa-envelope */
-.icon-qcoin::before { content: "\f155"; } /* fa-dollar-sign */
-
-/* 个性签名样式 */
-.user-signature {
-    font-size: 11px;
-    color: #666;
-    margin-top: 3px;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    max-width: 180px;
-    overflow: hidden;
+    font-size: 12px;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    padding: 1px 6px;
     white-space: nowrap;
-    text-overflow: ellipsis;
 }
+
+/* 删除了user-line-2和stat-item相关的样式 */
+
+.user-signature {
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    border: 1px solid transparent;
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 230px; /* 增加签名最大宽度 */
+    width: 100%; /* 确保占满可用空间 */
+    transition: all 0.2s ease;
+    background-color: rgba(255, 255, 255, 0.3);
+    margin-top: 5px; /* 添加顶部间距，替代原来的user-line-2空间 */
+}
+
+/* 删除了icon-level, icon-mail, icon-qcoin相关的样式 */
 
 .user-signature:hover {
-    color: #3a8ccc;
+    border-color: #a4c3e5;
+    background-color: rgba(226, 241, 255, 0.5);
 }
 
 #signature-text {
-    margin-right: 5px;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .edit-signature-icon {
-    opacity: 0.5;
-    font-size: 12px;
+    display: none;
+    margin-left: 4px;
+    color: #75b9f1;
+    font-size: 10px;
 }
 
 .edit-signature-icon::before {
-    content: "\f044"; /* fa-edit */
+    content: "\f303"; /* fa-pen */
 }
 
 .user-signature:hover .edit-signature-icon {
-    opacity: 1;
+    display: inline-block;
 }
 
-.weather-icon {
-    width: 28px; height: 26px;
+/* 状态图标 */
+/* 修改主头像的在线状态指示器 */
+.status-icon {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 12px; /* 从14px继续减小到12px */
+    height: 12px; /* 从14px继续减小到12px */
+    border-radius: 50%;
+    border: 1px solid white; /* 从2px减小到1px */
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
     cursor: pointer;
-    font-size: 22px;
-    color: #f0ad4e;
-    text-align: center;
+    z-index: 10;
+    transition: all 0.2s ease;
 }
-.weather-icon::before {
-    content: "\f185"; /* fa-sun */
+
+/* 不同状态的颜色 */
+.status-icon.online {
+    background-color: #2ecc71;
+    animation: pulse 3s infinite ease-in-out;
 }
-.weather-icon:hover {
+
+.status-icon.away {
+    background-color: #f39c12;
+}
+
+.status-icon.busy {
+    background-color: #e74c3c;
+}
+
+.status-icon.invisible {
+    background-color: #95a5a6;
+}
+
+.status-icon:hover {
     transform: scale(1.1);
+}
+
+/* 移除了在线状态指示器相关样式 */
+
+/* 状态选择菜单中的圆点 */
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+/* 状态天气容器 - 确保不占用过多空间 */
+.status-weather-container {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* 状态选择器 */
+.status-selector {
+    display: flex;
+    align-items: center;
+    background-color: rgba(255,255,255,0.5);
+    border-radius: 12px;
+    padding: 3px 8px;
+    cursor: pointer;
+    border: 1px solid rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    height: 24px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.status-selector:hover {
+    background-color: rgba(255,255,255,0.8);
+    border-color: #c5ddec;
+}
+
+.status-selector span {
+    margin: 0 4px;
+    font-size: 12px;
+    color: #333;
+}
+
+.status-selector i.fa-user-circle {
+    color: #2ecc71;
+    font-size: 12px;
+}
+
+.status-selector i.fa-chevron-down {
+    color: #777;
+    font-size: 10px;
+    margin-left: 2px;
 }
 
 /* Search Bar */
 .search-bar {
-    background: linear-gradient(to bottom, #f7fcff, #e8f4fd);
-    padding: 6px 10px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid #c5ddec;
+    background-color: #f0f8ff;
+    border-bottom: 1px solid #e0eefb;
+    padding: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     position: relative;
 }
 .search-bar input {
-    flex-grow: 1;
-    border: 1px solid #a0c7e5;
-    border-radius: 4px;
-    height: 24px;
-    padding-left: 24px;
-    background-color: #fff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) inset;
+    flex: 1;
+    border: 1px solid #c5ddec;
+    border-radius: 14px;
+    padding: 6px 30px;
     font-size: 12px;
+    background-color: white;
+    transition: all 0.3s ease;
+    outline: none;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
 }
 .search-bar input:focus {
     border-color: #75b9f1;
-    outline: none;
-    box-shadow: 0 0 3px rgba(117, 185, 241, 0.5);
+    box-shadow: 0 0 3px rgba(117, 185, 241, 0.3);
 }
 .search-icon {
-    width: 16px; height: 16px;
     position: absolute;
-    left: 16px;
-    opacity: 0.7;
-    font-size: 14px;
-    color: #666;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #75b9f1;
+    font-size: 12px;
+    pointer-events: none;
 }
 .search-icon::before {
     content: "\f002"; /* fa-search */
 }
 .search-dropdown-icon {
-    width: 16px; height: 16px;
-    margin-left: 5px;
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #75b9f1;
     cursor: pointer;
-    opacity: 0.7;
-    font-size: 14px;
-    color: #666;
+    font-size: 12px;
 }
 .search-dropdown-icon::before {
     content: "\f0d7"; /* fa-caret-down */
 }
 .search-dropdown-icon:hover {
-    opacity: 1;
+    color: #1c7ed6;
 }
-
 
 /* Tab Header */
 .tab-header {
-    background-color: #e3f1fc;
-    padding: 4px 8px;
-    font-weight: bold;
-    color: #333;
-    border-bottom: 1px solid #b6d5f1;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background-color: #e6f2ff;
+    padding: 8px 10px;
+    color: #1c7ed6;
+    font-size: 13px;
+    font-weight: bold;
+    border-bottom: 1px solid #c5ddec;
+    border-top: 1px solid #e0eefb;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
-
 .tab-header-options {
     display: flex;
-    align-items: center;
+    gap: 8px;
 }
-
 .tab-option {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-left: 5px;
     cursor: pointer;
-    font-size: 14px;
-    color: #666;
-    border-radius: 2px;
+    color: #75b9f1;
+    background-color: rgba(255,255,255,0.7);
+    border: 1px solid #a4c3e5;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    font-size: 12px;
 }
-
 .tab-option:hover {
-    background-color: rgba(117, 185, 241, 0.3);
-    color: #333;
+    background-color: white;
+    color: #1c7ed6;
+    box-shadow: 0 0 3px rgba(117, 185, 241, 0.4);
 }
 
-/* Friend List & Items */
+/* Friend List */
 .friend-list {
-    flex: 1;
+    flex-grow: 1;
     overflow-y: auto;
-    background-color: white;
-    display: flex;
-    flex-direction: column;
-    min-height: 100px; /* 最小高度 */
+    background-color: #f9fbff;
+    padding: 5px 0;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+    border-bottom: 1px solid #e0eefb;
+    scrollbar-width: thin;
 }
 .friend-list::-webkit-scrollbar { 
-    width: 8px;
+    width: 6px;
 }
 .friend-list::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
+    background: #f0f8ff;
+    border-radius: 3px;
 }
 .friend-list::-webkit-scrollbar-thumb {
-    background: #c5ddec;
-    border-radius: 4px;
+    background: #c5ddec; 
+    border-radius: 3px;
 }
 .friend-list::-webkit-scrollbar-thumb:hover {
-    background: #a0c7e5;
+    background: #a4c3e5; 
 }
 
 .group-header {
-    background: linear-gradient(to bottom, #f7f7f7, #e0e0e0);
     padding: 6px 10px;
-    font-weight: bold;
-    color: #333;
-    border-top: 1px solid #fff;
-    border-bottom: 1px solid #d4d4d4;
+    background: linear-gradient(to bottom, #e6f2ff, #d4e8fb);
+    border-top: 1px solid #e0eefb;
+    border-bottom: 1px solid #c5ddec;
     cursor: pointer;
+    position: relative;
     display: flex;
     align-items: center;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
-    transition: background 0.2s ease;
+    font-size: 13px;
+    color: #1c7ed6;
+    user-select: none;
 }
 .group-header:hover {
-    background: linear-gradient(to bottom, #f9f9f9, #e8e8e8);
+    background: linear-gradient(to bottom, #dbeeff, #c5e0fb);
 }
 .group-header.open > .group-arrow {
     transform: rotate(90deg);
 }
 .group-arrow {
-    width: 14px; height: 14px;
-    margin-right: 4px;
-    transition: transform 0.2s;
-    font-size: 14px;
-    color: #666;
+    width: 16px;
+    height: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-right: 6px;
+    transition: transform 0.2s ease;
+    color: #75b9f1;
 }
 .group-arrow::before {
     content: "\f0da"; /* fa-caret-right */
 }
 .friend-group {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
+    margin-bottom: 2px;
 }
-
 .friends-container {
     display: none;
-    overflow-y: auto;
-    max-height: 250px; /* 限制每个组的最大高度 */
+    padding: 5px 0;
+    background-color: white;
 }
-
 .friend-group.open .friends-container {
     display: block;
 }
 
 .friend-item {
-    display: flex; 
-    align-items: center; 
-    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    padding: 7px 10px;
     cursor: pointer;
-    border-bottom: 1px solid #f5f5f5;
-    transition: all 0.15s ease;
+    transition: background-color 0.2s ease;
 }
 .friend-item:hover { 
-    background-color: #cce8ff; 
+    background-color: #f0f8ff;
 }
 .friend-item.offline .friend-name, .friend-item.offline .friend-signature { color: #888; }
 .friend-item.offline img { filter: grayscale(100%); opacity: 0.8; }
@@ -476,123 +608,156 @@ body {
 .friend-avatar-wrapper {
     position: relative;
     margin-right: 10px;
+    flex-shrink: 0;
 }
-
 .friend-item img { 
-    width: 40px; height: 40px; 
-    border-radius: 20px; 
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    border: 1px solid #e0eefb;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .friend-item:hover img {
-    transform: scale(1.05);
-}
-
-.friend-status-icon {
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    width: 10px;
-    height: 10px;
-    background-color: #28a745;
-    border-radius: 50%;
-    border: 1px solid #fff;
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-color: #c5ddec;
 }
 .friend-details { 
-    display: flex; 
-    flex-direction: column;
+    flex-grow: 1;
     overflow: hidden;
+    min-width: 0;
 }
 .friend-name { 
-    font-size: 14px; 
-    margin-bottom: 2px;
+    display: block;
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 3px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .friend-signature { 
-    font-size: 12px; 
-    color: #999; 
+    display: block;
+    font-size: 11px;
+    color: #777;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+/* Request actions */
+.request-actions {
+    display: flex;
+    gap: 5px;
+    margin-left: auto;
+}
+
+.accept-btn, .reject-btn {
+    padding: 3px 10px;
+    font-size: 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.accept-btn {
+    background-color: #28a745;
+    color: white;
+}
+
+.accept-btn:hover {
+    background-color: #218838;
+}
+
+.reject-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.reject-btn:hover {
+    background-color: #c82333;
+}
+
 /* Bottom Tabs */
 .bottom-tabs {
     display: flex;
-    border-top: 1px solid #b6d5f1;
-    flex-shrink: 0; /* 防止底部标签栏被压缩 */
+    border-bottom: 1px solid #c5ddec;
+    background-color: #f0f8ff;
 }
 .tab-button {
-    flex-grow: 1;
-    background: linear-gradient(to bottom, #f0f8ff, #d6e7f7);
+    flex: 1;
+    padding: 8px;
+    background: linear-gradient(to bottom, #f0f8ff, #e6f2ff);
     border: none;
-    border-left: 1px solid #b6d5f1;
-    padding: 7px 0;
-    font-size: 12px;
-    color: #333;
+    border-left: 1px solid #d4e8fb;
     cursor: pointer;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
-    transition: all 0.2s ease;
-    outline: none;
+    font-size: 12px;
+    color: #1c7ed6;
+    text-align: center;
+    transition: background-color 0.2s ease;
+    border-bottom: 2px solid transparent;
 }
 .tab-button:first-child { border-left: none; }
 .tab-button.active { 
-    background: linear-gradient(to bottom, #ffffff, #eaf5fd); 
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) inset;
+    background: linear-gradient(to bottom, #e6f2ff, #d4e8fb);
+    color: #0056b3;
     font-weight: bold;
-    color: #3a8ccc;
+    border-bottom: 2px solid #75b9f1;
 }
 .tab-button:hover:not(.active) { 
-    background: linear-gradient(to bottom, #f7fcff, #e8f4fd);
+    background-color: #e6f2ff;
+    border-bottom: 2px solid #a4c3e5;
 }
 
-/* Footer Toolbar */
+/* Footer */
 .footer {
-    background: linear-gradient(to top, #c5e3fc, #d8edfd 50%, #e8f4fd 100%);
-    border-top: 1px solid #b6d5f1;
-    padding: 6px 10px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    height: 36px;
+    background: linear-gradient(to bottom, #f0f8ff, #d4e8fb);
+    border-top: 1px solid #c5ddec;
+    padding: 0 10px;
     position: relative;
-    border-bottom-left-radius: 5px;
-    border-bottom-right-radius: 5px;
-    flex-shrink: 0; /* 防止底部工具栏被压缩 */
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.03);
 }
 .footer::after {
     content: '';
     position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: linear-gradient(to top, rgba(255,255,255,0.15), transparent);
-    opacity: 0.1;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent);
+    opacity: 0.5;
     pointer-events: none;
-    border-bottom-left-radius: 5px;
-    border-bottom-right-radius: 5px;
 }
 .footer-icons-left {
     display: flex;
-    align-items: center;
+    gap: 8px;
 }
 .footer-icon {
-    width: 24px; height: 24px;
-    margin: 0 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #1c7ed6;
+    background: linear-gradient(to bottom, #ffffff, #f0f8ff);
+    border: 1px solid #c5ddec;
+    border-radius: 4px;
     cursor: pointer;
-    opacity: 0.8;
     transition: all 0.2s ease;
-    font-size: 16px;
-    color: #003366;
-    text-align: center;
-    line-height: 24px;
-    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    position: relative;
 }
 .footer-icon:hover {
-    opacity: 1;
-    transform: scale(1.1);
-    background-color: rgba(255, 255, 255, 0.5);
+    background: white;
+    color: #0056b3;
+    border-color: #75b9f1;
+    box-shadow: 0 0 5px rgba(117, 185, 241, 0.3);
 }
 .icon-menu::before { content: "\f0c9"; } /* fa-bars */
 .icon-find-friend::before { content: "\f234"; } /* fa-user-plus */
@@ -629,20 +794,32 @@ body {
 }
 
 /* --- QQ 2008 Login Page Styles --- */
-body.login-page {
-    background-color: transparent;
-    overflow: hidden;
+html, body.login-page {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
 }
 
-.login-container {
-    width: 350px;
-    height: 350px;
-    background: #f1f9ff;
-    border: 1px solid #a4c3e5;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+body.login-page {
+    background-color: #f7fbff; /* 更淡的背景色 */
     position: relative;
     overflow: hidden;
-    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-page::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 90px;
+    background-color: #a5d1f9; /* 蓝色顶部区域 */
+    z-index: 0;
 }
 
 .top-drag-bar {
@@ -650,29 +827,32 @@ body.login-page {
     top: 0;
     left: 0;
     width: 100%;
-    height: 90px; /* Draggable area at the top banner part */
+    height: 25px; /* 减小高度，只有顶部控制按钮区域可拖动 */
     -webkit-app-region: drag;
+    z-index: 10;
 }
 
 .close-button, .minimize-button, .settings-button {
     position: absolute;
     top: 4px;
-    width: 26px; /* Adjusted size */
-    height: 20px; /* Adjusted size */
+    width: 20px;
+    height: 18px;
     -webkit-app-region: no-drag;
     cursor: pointer;
-    /* background-color: rgba(255, 255, 255, 0.1); */
-    /* border: 1px solid rgba(255, 255, 255, 0.2); */
     background-color: #dceaf7;
     border: 1px solid #a0c6e5;
     border-radius: 2px;
     z-index: 10;
     text-align: center;
-    line-height: 18px;
+    line-height: 16px;
     color: #336699;
     font-family: Arial, sans-serif;
     font-weight: bold;
 }
+
+.close-button { right: 7px; }
+.minimize-button { right: 30px; }
+.settings-button { right: 53px; }
 
 .close-button:hover, .minimize-button:hover, .settings-button:hover {
     background-color: #f0f8ff;
@@ -691,20 +871,26 @@ body.login-page {
     font-size: 10px;
 }
 
-.close-button { right: 7px; }
-.minimize-button { right: 35px; } /* Adjusted position */
-.settings-button { right: 63px; } /* Adjusted position */
+.logo-area {
+    position: absolute;
+    top: 25px;
+    left: 0;
+    right: 0;
+    height: 65px;
+    z-index: 1;
+}
 
 .login-form {
-    position: absolute;
-    top: 95px;
-    left: 0;
-    width: 100%;
-    padding: 0 20px;
+    position: relative;
+    width: 320px;
+    margin: 0 auto;
+    padding: 0 10px;
     display: flex;
     align-items: center;
     box-sizing: border-box;
     -webkit-app-region: no-drag;
+    margin-top: 95px;
+    z-index: 5;
 }
 
 .avatar-section {
@@ -713,28 +899,30 @@ body.login-page {
 }
 
 .avatar {
-    width: 70px;
-    height: 70px;
+    width: 68px;
+    height: 68px;
     background: #fff;
     border: 1px solid #ccc;
-    padding: 3px;
+    padding: 2px;
     border-radius: 3px;
 }
 
 .input-section {
     flex-grow: 1;
+    width: calc(100% - 90px);
 }
 
 .input-wrapper {
     display: flex;
     align-items: center;
     margin-bottom: 12px;
+    position: relative;
 }
 
 .input-wrapper input[type="text"],
 .input-wrapper input[type="password"] {
     width: 100%;
-    height: 28px;
+    height: 26px;
     border: 1px solid #99bbe8;
     border-radius: 2px;
     padding: 0 8px;
@@ -749,7 +937,11 @@ body.login-page {
 }
 
 .link-right {
-    margin-left: 10px;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-right: 5px;
     font-size: 12px;
     color: #3366cc;
     text-decoration: none;
@@ -761,12 +953,14 @@ body.login-page {
 }
 
 .options-section {
-    position: absolute;
-    top: 195px;
-    left: 100px;
+    position: relative;
+    width: 300px;
+    margin: 0 auto;
     display: flex;
     align-items: center;
     -webkit-app-region: no-drag;
+    margin-top: 8px;
+    z-index: 5;
 }
 
 .checkbox-wrapper {
@@ -775,17 +969,17 @@ body.login-page {
     margin-right: 10px;
     font-size: 12px;
     color: #666;
-    /* text-shadow: 0 1px 2px rgba(0,0,0,0.5); */ /* Removed shadow */
     cursor: pointer;
-}
-
-.checkbox-wrapper input[type="checkbox"] {
-    display: none; /* Hide original checkbox */
 }
 
 .checkbox-wrapper label {
     position: relative;
-    padding-left: 20px;
+    padding-left: 18px;
+    font-size: 12px;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+    display: none; /* Hide original checkbox */
 }
 
 /* Custom checkbox box */
@@ -812,12 +1006,14 @@ body.login-page {
 }
 
 .status-selector {
+    margin-left: auto;
     display: flex;
     align-items: center;
     background: #fff;
     border: 1px solid #99bbe8;
     border-radius: 2px;
-    padding: 3px 6px;
+    padding: 2px 5px;
+    font-size: 12px;
     cursor: pointer;
 }
 
@@ -836,18 +1032,16 @@ body.login-page {
 }
 
 .footer-section {
-    position: absolute;
-    bottom: 55px;
-    left: 0;
-    width: 100%;
-    padding: 0 20px;
-    box-sizing: border-box;
-    -webkit-app-region: no-drag;
+    position: relative;
+    width: 300px;
+    margin: 0 auto;
+    margin-top: 15px;
+    z-index: 5;
 }
 
 .login-button {
     width: 100%;
-    height: 35px;
+    height: 32px;
     background: linear-gradient(to bottom, #60abf8, #4d90fe);
     border: 1px solid #3079ed;
     border-radius: 3px;
@@ -855,9 +1049,7 @@ body.login-page {
     font-size: 14px;
     font-weight: bold;
     letter-spacing: 5px;
-    text-shadow: 0 -1px 0 rgba(0,0,0,0.2);
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .login-button:hover {
@@ -870,17 +1062,17 @@ body.login-page {
 }
 
 .bottom-links {
-    position: absolute;
-    bottom: 20px;
-    left: 0;
-    width: 100%;
+    position: relative;
+    width: 300px;
+    margin: 0 auto;
+    margin-top: 12px;
     text-align: center;
     font-size: 12px;
-    -webkit-app-region: no-drag;
+    z-index: 5;
 }
 
 .bottom-links a {
-    color: #3366cc; /* Changed to a darker blue */
+    color: #3366cc;
     text-decoration: none;
     margin: 0 8px;
 }
@@ -894,13 +1086,13 @@ body.login-page {
 }
 
 .error-message {
-    position: absolute;
-    bottom: 90px; /* Position above the login button */
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
+    width: 300px;
+    margin: 0 auto;
+    margin-top: 8px;
     color: #ff4d4d;
-    background-color: rgba(0, 0, 0, 0.5);
-    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 4px 8px;
     border-radius: 3px;
     font-size: 12px;
     text-align: center;
@@ -1019,4 +1211,654 @@ body.login-page {
     width: 14px;
     text-align: center;
     color: #336699;
+}
+
+/* Register Page */
+body.register-page {
+    background: radial-gradient(circle at center, #b6d5f1, #7fb9f5);
+}
+
+.register-container {
+    width: 350px;
+    margin: 50px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+}
+
+.register-content {
+    text-align: center;
+    padding: 15px;
+}
+
+.register-content h2 {
+    color: #1c7ed6;
+    margin-bottom: 20px;
+    font-size: 24px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.register-content p {
+    margin-bottom: 25px;
+    color: #555;
+    font-size: 14px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #444;
+    font-size: 14px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #c5ddec;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.3s;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    border-color: #75b9f1;
+    box-shadow: 0 0 5px rgba(117, 185, 241, 0.3);
+    outline: none;
+}
+
+.register-button {
+    background: linear-gradient(to bottom, #1c7ed6, #1971c2);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s;
+    margin-top: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.register-button:hover {
+    background: linear-gradient(to bottom, #1a74c4, #165fa3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+#success-message {
+    color: #28a745;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+#new-qq-number {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border: 1px solid #c5ddec;
+    border-radius: 4px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #1c7ed6;
+    margin: 15px 0;
+}
+
+/* Add Friend Page - 夜间模式 */
+body.add-friend-page {
+    background-color: #2d2d2d;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    color: #e0e0e0;
+    overflow: hidden;
+    user-select: none;
+}
+
+.add-friend-container {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #2d2d2d;
+    border: 1px solid #444;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.add-friend-header {
+    background: linear-gradient(to bottom, #444444, #333333);
+    padding: 8px 12px;
+    border-bottom: 1px solid #555;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-app-region: drag;
+}
+
+.add-friend-title {
+    font-size: 14px;
+    color: #e0e0e0;
+    font-weight: bold;
+}
+
+.add-friend-close {
+    width: 20px;
+    height: 20px;
+    background-color: #555;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e0e0e0;
+    font-size: 16px;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+}
+
+.add-friend-close:hover {
+    background-color: #666;
+}
+
+.add-friend-search {
+    padding: 12px;
+    background-color: #333;
+    border-bottom: 1px solid #444;
+}
+
+.search-form {
+    display: flex;
+    gap: 8px;
+}
+
+.search-form input {
+    flex-grow: 1;
+    padding: 6px 10px;
+    border: 1px solid #555;
+    border-radius: 2px;
+    background-color: #222;
+    color: #e0e0e0;
+    font-size: 13px;
+}
+
+.search-form input:focus {
+    outline: none;
+    border-color: #666;
+}
+
+.search-form button {
+    padding: 6px 12px;
+    background: linear-gradient(to bottom, #555555, #444444);
+    color: #e0e0e0;
+    border: 1px solid #666;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.search-form button:hover {
+    background: linear-gradient(to bottom, #666666, #555555);
+}
+
+.search-results {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 5px;
+    background-color: #222;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #444;
+    transition: background 0.2s;
+}
+
+.search-result-item:hover {
+    background-color: #333;
+}
+
+.result-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 2px;
+    margin-right: 10px;
+    border: 1px solid #444;
+    background-color: #333;
+}
+
+.result-info {
+    flex-grow: 1;
+}
+
+.result-name {
+    font-weight: bold;
+    font-size: 13px;
+    color: #e0e0e0;
+    margin-bottom: 2px;
+}
+
+.result-qq {
+    font-size: 12px;
+    color: #999;
+}
+
+.add-button {
+    padding: 4px 10px;
+    background: linear-gradient(to bottom, #555555, #444444);
+    color: #e0e0e0;
+    border: 1px solid #666;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.add-button:hover {
+    background: linear-gradient(to bottom, #666666, #555555);
+}
+
+.add-button.sent {
+    background: #444;
+    color: #999;
+    border-color: #555;
+    cursor: not-allowed;
+}
+
+.no-results, .searching {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+    font-style: italic;
+    font-size: 13px;
+}
+
+/* 滚动条样式 */
+.search-results::-webkit-scrollbar {
+    width: 8px;
+}
+
+.search-results::-webkit-scrollbar-track {
+    background: #222;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 4px;
+}
+
+.search-results::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Login Page */
+.login-page {
+    background: radial-gradient(circle at center, #b6d5f1, #7fb9f5);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 状态菜单弹出框样式 */
+.status-menu-popup {
+    position: absolute;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 9999;
+    display: none;
+    width: 120px;
+    animation: fadeIn 0.2s ease;
+}
+
+.status-menu-popup ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.status-menu-popup li {
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #333;
+    border-bottom: 1px solid #e6f2ff;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.status-menu-popup li:last-child {
+    border-bottom: none;
+}
+
+.status-menu-popup li:hover {
+    background-color: #e6f2ff;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.online {
+    background: linear-gradient(to bottom right, #2ecc71, #27ae60);
+}
+
+.status-dot.away {
+    background: linear-gradient(to bottom right, #f39c12, #e67e22);
+}
+
+.status-dot.busy {
+    background: linear-gradient(to bottom right, #e74c3c, #c0392b);
+}
+
+.status-dot.invisible {
+    background: linear-gradient(to bottom right, #95a5a6, #7f8c8d);
+}
+
+/* 在线状态图标的类名扩展 */
+.online-status-icon.away {
+    background: linear-gradient(to bottom right, #f39c12, #e67e22);
+}
+
+.online-status-icon.busy {
+    background: linear-gradient(to bottom right, #e74c3c, #c0392b);
+}
+
+.online-status-icon.invisible {
+    background: linear-gradient(to bottom right, #95a5a6, #7f8c8d);
+}
+
+/* 修改好友列表中的在线状态指示器 */
+.friend-status-icon {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    bottom: 2px;
+    right: 2px;
+    font-size: 10px;
+    color: transparent;
+    background: linear-gradient(to bottom right, #2ecc71, #27ae60);
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 2px rgba(0,0,0,0.1);
+    z-index: 2;
+}
+
+.friend-status-icon::before {
+    content: "";
+}
+
+/* 添加其他状态样式 */
+.status-icon.away, .friend-status-icon.away {
+    background: linear-gradient(to bottom right, #f39c12, #e67e22);
+}
+
+.status-icon.busy, .friend-status-icon.busy {
+    background: linear-gradient(to bottom right, #e74c3c, #c0392b);
+}
+
+.status-icon.invisible, .friend-status-icon.invisible {
+    background: linear-gradient(to bottom right, #95a5a6, #7f8c8d);
+}
+
+/* 添加微妙的脉动动画效果 */
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.9; }
+}
+
+/* 状态天气容器 */
+.status-weather-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* 图标规则 */
+/* 删除了icon-level, icon-mail, icon-qcoin的定义 */
+
+/* 资料卡样式 */
+.profile-card {
+    position: absolute;
+    top: 70px;
+    left: 20px;
+    width: 280px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+    z-index: 9999; /* 提高z-index确保在最顶层 */
+    display: none;
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+    pointer-events: auto; /* 确保事件不被穿透 */
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.profile-card-header {
+    position: relative;
+    height: 100px;
+    background: linear-gradient(135deg, #75b9f1, #3f98d9);
+    display: flex;
+    justify-content: center;
+    padding: 10px;
+}
+
+.profile-card-avatar {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-top: 40px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    background-color: white;
+    cursor: pointer;
+}
+
+.profile-card-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-card-avatar:hover::after {
+    content: "\f030"; /* fa-camera */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+}
+
+.profile-card-content {
+    padding: 60px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.profile-card-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+    position: relative;
+    cursor: pointer;
+}
+
+.profile-card-name:hover::after {
+    content: "\f303"; /* fa-pen */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 12px;
+    color: #75b9f1;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+.profile-card-qq {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.profile-card-signature {
+    font-size: 14px;
+    color: #666;
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 5px 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    width: 90%;
+    border-radius: 4px;
+}
+
+.profile-card-signature:hover {
+    border-color: #e0eefb;
+    background-color: #f9fbff;
+}
+
+.profile-card-signature:hover::after {
+    content: "编辑";
+    color: #75b9f1;
+    font-size: 12px;
+    margin-left: 5px;
+}
+
+.profile-card-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 20px;
+    border-top: 1px solid #e0eefb;
+    background-color: #f9fbff;
+}
+
+.profile-card-save {
+    background: linear-gradient(to bottom, #1c7ed6, #1971c2);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.profile-card-save:hover {
+    background: linear-gradient(to bottom, #1a74c4, #1669b7);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.profile-card-cancel {
+    border: 1px solid #c5ddec;
+    background-color: white;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 14px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.profile-card-cancel:hover {
+    border-color: #75b9f1;
+    color: #1c7ed6;
+}
+
+.edit-input {
+    padding: 5px 10px;
+    border: 1px solid #c5ddec;
+    border-radius: 4px;
+    font-size: 14px;
+    width: 90%;
+    margin-bottom: 10px;
+    display: none;
+}
+
+.edit-input:focus {
+    border-color: #75b9f1;
+    outline: none;
+    box-shadow: 0 0 3px rgba(117, 185, 241, 0.3);
+}
+
+/* 减少过渡动画引起的闪烁 */
+.main-avatar, .sidebar-icon, .window-control, .footer-icon, .tab-button {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* 减少图像加载时可能引起的闪烁 */
+img {
+    backface-visibility: hidden;
+}
+
+/* 确保头像容器的尺寸稳定，不会因为内容变化而改变大小 */
+.avatar-container, .avatar-wrapper {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+/* 防止过渡动画导致闪烁 */
+.friend-item, .group-header, .tab-header, .user-details, .friend-avatar-wrapper {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* 确保滚动不会导致重绘闪烁 */
+.friend-list {
+    overflow-y: auto;
+    overflow-x: hidden;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform, scroll-position;
+}
+
+/* 添加好友按钮的上标样式 */
+.footer-icon .notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #e74c3c;
+    color: white;
+    font-size: 10px;
+    min-width: 15px;
+    height: 15px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    font-weight: bold;
+    z-index: 10;
+    padding: 0 3px;
 }

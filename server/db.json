@@ -2,8 +2,32 @@
   "users": {
     "10001": {
       "nickname": "lyingshine",
-      "password": "123"
+      "password": "123",
+      "signature": "这个人很懒，什么都没留下",
+      "status": "online",
+      "friends": [
+        "10002"
+      ],
+      "friendRequestsSent": [],
+      "friendRequestsReceived": [],
+      "avatar": "file:///C:/Users/Administrator/Desktop/oicq/assets/logo.png"
+    },
+    "10002": {
+      "nickname": "陈十一",
+      "password": "123",
+      "avatar": "data:image/svg+xml;base64,CiAgICAgICAgPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgICAgICAgICAgIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjZjAyNTNiIi8+CiAgICAgICAgICAgIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCIgZmlsbD0iI2ZmZiI+6ZmIPC90ZXh0PgogICAgICAgIDwvc3ZnPgogICAg",
+      "signature": "这个人很懒，什么都没留下",
+      "status": "online",
+      "friends": [
+        "10001"
+      ],
+      "friendRequestsSent": [],
+      "friendRequestsReceived": []
     }
   },
-  "lastQQ": 10001
+  "lastQQ": 10002,
+  "nicknames": {
+    "lyingshine": "10001",
+    "陈十一": 10002
+  }
 }
