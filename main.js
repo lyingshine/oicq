@@ -19,7 +19,9 @@ function createWindow () {
     transparent: true, // 启用窗口透明
     resizable: false, // 禁止调整大小
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
     }
   });
 
@@ -47,6 +49,8 @@ function createRegisterWindow() {
     modal: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
     },
   });
 

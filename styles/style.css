@@ -2,9 +2,9 @@
 html, body {
     height: 100%;
     margin: 0;
-    overflow: hidden;
-    font-family: 'Microsoft YaHei', 'SimSun', '宋体', sans-serif;
-    font-size: 12px;
+    padding: 0;
+    font-family: 'Microsoft YaHei', 'SimSun', sans-serif;
+    background: transparent; /* Make the body background transparent */
 }
 
 body {
@@ -629,25 +629,20 @@ body {
 }
 
 /* --- QQ 2008 Login Page Styles --- */
-body {
-    background-color: #f0f0f0; /* Fallback color */
+body.login-page {
+    background-color: transparent;
+    overflow: hidden;
 }
 
 .login-container {
-    width: 440px;
-    height: 330px;
-    /* background-image: url('https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=800'); */
-    background: linear-gradient(to bottom, #e9f2f9, #d0e4f3); /* Solid color gradient background */
-    border: 1px solid #99bbe8; /* Added border */
-    background-size: cover;
-    background-position: center;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border-radius: 5px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    width: 350px;
+    height: 350px;
+    background: #f1f9ff;
+    border: 1px solid #a4c3e5;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    position: relative;
     overflow: hidden;
+    border-radius: 10px;
 }
 
 .top-drag-bar {
@@ -702,10 +697,10 @@ body {
 
 .login-form {
     position: absolute;
-    top: 100px; /* Position below the top banner area */
+    top: 95px;
     left: 0;
     width: 100%;
-    padding: 0 30px;
+    padding: 0 20px;
     display: flex;
     align-items: center;
     box-sizing: border-box;
@@ -714,11 +709,12 @@ body {
 
 .avatar-section {
     flex-shrink: 0;
+    margin-right: 10px;
 }
 
 .avatar {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
     background: #fff;
     border: 1px solid #ccc;
     padding: 3px;
@@ -727,7 +723,6 @@ body {
 
 .input-section {
     flex-grow: 1;
-    margin-left: 10px;
 }
 
 .input-wrapper {
@@ -738,13 +733,14 @@ body {
 
 .input-wrapper input[type="text"],
 .input-wrapper input[type="password"] {
-    width: 200px;
+    width: 100%;
     height: 28px;
     border: 1px solid #99bbe8;
     border-radius: 2px;
     padding: 0 8px;
     font-size: 13px;
     background: #ffffff;
+    box-sizing: border-box;
 }
 
 .input-wrapper input:focus {
@@ -753,7 +749,7 @@ body {
 }
 
 .link-right {
-    margin-left: 8px;
+    margin-left: 10px;
     font-size: 12px;
     color: #3366cc;
     text-decoration: none;
@@ -766,8 +762,8 @@ body {
 
 .options-section {
     position: absolute;
-    top: 200px; /* Position below the form */
-    left: 130px; /* Align with input fields */
+    top: 195px;
+    left: 100px;
     display: flex;
     align-items: center;
     -webkit-app-region: no-drag;
@@ -776,9 +772,9 @@ body {
 .checkbox-wrapper {
     display: inline-flex;
     align-items: center;
-    margin-right: 15px;
+    margin-right: 10px;
     font-size: 12px;
-    color: #333; /* Changed from white to dark text */
+    color: #666;
     /* text-shadow: 0 1px 2px rgba(0,0,0,0.5); */ /* Removed shadow */
     cursor: pointer;
 }
@@ -841,14 +837,16 @@ body {
 
 .footer-section {
     position: absolute;
-    bottom: 50px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 55px;
+    left: 0;
+    width: 100%;
+    padding: 0 20px;
+    box-sizing: border-box;
     -webkit-app-region: no-drag;
 }
 
 .login-button {
-    width: 300px;
+    width: 100%;
     height: 35px;
     background: linear-gradient(to bottom, #60abf8, #4d90fe);
     border: 1px solid #3079ed;
@@ -874,8 +872,9 @@ body {
 .bottom-links {
     position: absolute;
     bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    width: 100%;
+    text-align: center;
     font-size: 12px;
     -webkit-app-region: no-drag;
 }
