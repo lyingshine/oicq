@@ -525,123 +525,112 @@ body {
 
 /* Friend List */
 .friend-list {
-    flex-grow: 1;
+    flex: 1;
     overflow-y: auto;
-    background-color: #f9fbff;
-    padding: 5px 0;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
-    border-bottom: 1px solid #e0eefb;
-    scrollbar-width: thin;
-}
-.friend-list::-webkit-scrollbar { 
-    width: 6px;
-}
-.friend-list::-webkit-scrollbar-track {
-    background: #f0f8ff;
+    overflow-x: hidden;
+    background-color: #f5f9fd;
+    padding: 5px;
+    box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.05);
+    /* 确保可以滚动 */
+    max-height: calc(100% - 160px);
+    min-height: 200px;
+    border: 1px solid #e5e5e5;
+    margin: 0 5px;
     border-radius: 3px;
-}
-.friend-list::-webkit-scrollbar-thumb {
-    background: #c5ddec; 
-    border-radius: 3px;
-}
-.friend-list::-webkit-scrollbar-thumb:hover {
-    background: #a4c3e5; 
 }
 
-.group-header {
-    padding: 6px 10px;
-    background: linear-gradient(to bottom, #e6f2ff, #d4e8fb);
-    border-top: 1px solid #e0eefb;
-    border-bottom: 1px solid #c5ddec;
-    cursor: pointer;
-    position: relative;
-    display: flex;
-    align-items: center;
-    font-size: 13px;
-    color: #1c7ed6;
-    user-select: none;
-}
-.group-header:hover {
-    background: linear-gradient(to bottom, #dbeeff, #c5e0fb);
-}
-.group-header.open > .group-arrow {
-    transform: rotate(90deg);
-}
-.group-arrow {
-    width: 16px;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 6px;
-    transition: transform 0.2s ease;
-    color: #75b9f1;
-}
-.group-arrow::before {
-    content: "\f0da"; /* fa-caret-right */
-}
+/* 好友组 */
 .friend-group {
-    margin-bottom: 2px;
+    margin-bottom: 5px;
+    width: 100%;
+    display: block;
 }
+
+/* 好友容器 */
 .friends-container {
     display: none;
-    padding: 5px 0;
-    background-color: white;
+    width: 100%;
 }
+
 .friend-group.open .friends-container {
     display: block;
 }
 
+/* 好友项 */
 .friend-item {
     display: flex;
     align-items: center;
-    padding: 7px 10px;
+    padding: 6px;
+    border-radius: 4px;
+    margin-bottom: 2px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s;
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid transparent;
 }
+
 .friend-item:hover { 
-    background-color: #f0f8ff;
+    background-color: #e0f0ff;
+    border-color: #a9d6ff;
 }
+
 .friend-item.offline .friend-name, .friend-item.offline .friend-signature { color: #888; }
 .friend-item.offline img { filter: grayscale(100%); opacity: 0.8; }
 
 .friend-avatar-wrapper {
     position: relative;
-    margin-right: 10px;
+    margin-right: 8px;
     flex-shrink: 0;
 }
+
 .friend-item img { 
     width: 40px;
     height: 40px;
-    border-radius: 4px;
-    border: 1px solid #e0eefb;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    transition: all 0.2s;
 }
+
 .friend-item:hover img {
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    border-color: #c5ddec;
+    border-color: #75b9f1;
 }
+
 .friend-details { 
-    flex-grow: 1;
+    flex: 1;
     overflow: hidden;
-    min-width: 0;
 }
+
 .friend-name { 
-    display: block;
     font-size: 13px;
+    font-weight: bold;
     color: #333;
-    margin-bottom: 3px;
+    display: block;
+    margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
 .friend-signature { 
-    display: block;
     font-size: 11px;
     color: #777;
+    display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* 空列表状态 */
+.empty-friend-list {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 5px;
+    margin: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 /* Request actions */
@@ -1840,6 +1829,108 @@ img {
     transform: translateZ(0);
     backface-visibility: hidden;
     will-change: transform, scroll-position;
+}
+
+/* 增强好友列表相关样式 */
+.friend-list::-webkit-scrollbar { 
+    width: 6px;
+}
+.friend-list::-webkit-scrollbar-track {
+    background: #f0f8ff;
+    border-radius: 3px;
+}
+.friend-list::-webkit-scrollbar-thumb {
+    background: #c5ddec; 
+    border-radius: 3px;
+}
+.friend-list::-webkit-scrollbar-thumb:hover {
+    background: #a4c3e5; 
+}
+
+.group-header {
+    padding: 6px 10px;
+    background: linear-gradient(to bottom, #e6f2ff, #d4e8fb);
+    border-top: 1px solid #e0eefb;
+    border-bottom: 1px solid #c5ddec;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    color: #1c7ed6;
+    user-select: none;
+    border-radius: 4px;
+}
+.group-header:hover {
+    background: linear-gradient(to bottom, #dbeeff, #c5e0fb);
+}
+.group-header.open > .group-arrow {
+    transform: rotate(90deg);
+}
+.group-arrow {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+    transition: transform 0.2s ease;
+    color: #75b9f1;
+}
+.group-arrow::before {
+    content: "\f0da"; /* fa-caret-right */
+}
+
+/* 好友请求按钮样式 */
+.request-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 5px;
+}
+
+.accept-btn, .reject-btn {
+    border: none;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.accept-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.accept-btn:hover {
+    background-color: #45a049;
+}
+
+.reject-btn {
+    background-color: #f44336;
+    color: white;
+}
+
+.reject-btn:hover {
+    background-color: #d32f2f;
+}
+
+/* 添加刷新按钮动画 */
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+#refresh-friends-btn {
+    cursor: pointer;
+}
+
+#refresh-friends-btn:hover {
+    color: #1c7ed6;
+}
+
+#refresh-friends-btn.rotating i {
+    animation: rotate 1s linear infinite;
 }
 
 /* 添加好友按钮的上标样式 */

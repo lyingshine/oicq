@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFriendRequestAccepted: (callback) => ipcRenderer.on('friend-request-accepted', (event, newFriend) => callback(newFriend)),
   onFriendRequestRejected: (callback) => ipcRenderer.on('friend-request-rejected', (event, requesterQq) => callback(requesterQq)),
   onFriendRequestCount: (callback) => ipcRenderer.on('friend-request-count', (event, count) => callback(count)),
+  onFriendRequest: (callback) => ipcRenderer.on('friend-request', (_event) => callback()),
+  onFriendOnline: (callback) => ipcRenderer.on('friend-online', (_event, friendQq) => callback(friendQq)),
+  onMessageReceived: (callback) => ipcRenderer.on('message-received', (_event, sender) => callback(sender)),
+
+  // 声音相关API
+  playSound: (soundType) => ipcRenderer.send('play-sound', soundType),
 
   // Deprecated
   addFriend: (userQq, friendQq) => ipcRenderer.invoke('add-friend', userQq, friendQq),

@@ -23,11 +23,22 @@
       ],
       "friendRequestsSent": [],
       "friendRequestsReceived": []
+    },
+    "10003": {
+      "nickname": "赵匡胤",
+      "password": "123",
+      "avatar": "data:image/svg+xml;base64,CiAgICAgICAgPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgICAgICAgICAgIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjNzYyZmQ2Ii8+CiAgICAgICAgICAgIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCIgZmlsbD0iI2ZmZiI+6LW1PC90ZXh0PgogICAgICAgIDwvc3ZnPgogICAg",
+      "signature": "这个人很懒，什么都没留下",
+      "status": "online",
+      "friends": [],
+      "friendRequestsSent": [],
+      "friendRequestsReceived": []
     }
   },
-  "lastQQ": 10002,
+  "lastQQ": 10003,
   "nicknames": {
     "lyingshine": "10001",
-    "陈十一": 10002
+    "陈十一": 10002,
+    "赵匡胤": 10003
   }
 }

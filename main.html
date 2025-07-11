@@ -65,6 +65,7 @@
             <div class="tab-header">
                <span>QQ好友</span>
                <span class="tab-header-options">
+                   <span class="tab-option" title="刷新好友列表" id="refresh-friends-btn"><i class="fas fa-sync-alt"></i></span>
                    <span class="tab-option" title="添加分组">+</span>
                    <span class="tab-option" title="显示设置">≡</span>
                </span>
@@ -92,6 +93,7 @@
             <div class="main-menu-popup" id="main-menu-popup">
                 <ul>
                     <li id="switch-account-btn"><i class="fas fa-exchange-alt"></i> 切换账号</li>
+                    <li id="test-sound-btn"><i class="fas fa-volume-up"></i> 测试声音</li>
                     <li><i class="fas fa-sign-out-alt"></i> 退出登录</li>
                 </ul>
             </div>
@@ -256,9 +258,16 @@
                 setStatusDisplay(user.status);
             }
             
-            // 更新好友列表
-            if (typeof updateFriendsList === 'function') {
+            // 更新好友列表 - 确保在收到用户信息后立即更新好友列表
+            console.log('用户信息应用完成，立即更新好友列表');
+            if (user.qq && typeof updateFriendsList === 'function') {
+                console.log('调用updateFriendsList更新好友列表');
                 updateFriendsList(user.qq);
+            } else {
+                console.error('无法更新好友列表:', {
+                    有用户QQ: !!user.qq,
+                    更新函数存在: typeof updateFriendsList === 'function'
+                });
             }
         }
         
@@ -451,6 +460,14 @@
             }
             
             console.log('本地存储恢复结果:', userLoaded ? '成功' : '失败');
+            
+            // 如果成功加载用户信息，立即获取并显示好友列表
+            if (userLoaded && window.currentUser && window.currentUser.qq) {
+                console.log('用户信息加载成功，初始化好友列表:', window.currentUser.qq);
+                updateFriendsList(window.currentUser.qq);
+            } else {
+                console.log('用户信息加载失败，暂不初始化好友列表');
+            }
 
             // 如果加载失败，不要自动登录 - 主界面不应该再触发登录
             // 移除以下自动登录代码块，避免循环登录
@@ -485,6 +502,24 @@
             const signatureInput = document.getElementById('signature-input');
             const profileSave = document.getElementById('profile-save');
             const profileCancel = document.getElementById('profile-cancel');
+            
+            // 添加声音事件监听
+            window.electronAPI.onFriendRequest(() => {
+                console.log('收到新的好友请求');
+                // 此事件已经在主进程中播放了声音
+            });
+            
+            window.electronAPI.onFriendOnline((friendQq) => {
+                console.log('好友上线:', friendQq);
+                // 播放好友上线提示音
+                window.electronAPI.playSound('上线提示音');
+            });
+            
+            window.electronAPI.onMessageReceived((sender) => {
+                console.log('收到来自用户的消息:', sender);
+                // 播放消息提示音
+                window.electronAPI.playSound('信息提示音');
+            });
             
             // 如果存在恢复的用户信息，立即更新UI
             if (window.currentUser) {
@@ -695,11 +730,47 @@
             let friendGroups = [];
 
             function renderFriendList() {
+                console.log('开始渲染好友列表，当前好友组数据:', friendGroups);
+                
+                // 检查DOM元素
+                if (!friendListContainer) {
+                    friendListContainer = document.querySelector('.friend-list');
+                    if (!friendListContainer) {
+                        console.error('无法找到好友列表容器元素');
+                        return;
+                    }
+                }
+                
+                // 清空容器
                 friendListContainer.innerHTML = '';
-                friendGroups.forEach(groupData => {
+                console.log(`清空好友列表容器完成，准备渲染${friendGroups.length}个分组`);
+                
+                // 添加调试信息
+                if (friendGroups.length === 0) {
+                    console.warn('没有好友组数据可渲染');
+                    // 添加空状态提示
+                    const emptyState = document.createElement('div');
+                    emptyState.className = 'empty-friend-list';
+                    emptyState.style.padding = '20px';
+                    emptyState.style.textAlign = 'center';
+                    emptyState.style.color = '#999';
+                    emptyState.textContent = '好友列表为空，请添加好友';
+                    friendListContainer.appendChild(emptyState);
+                    return;
+                }
+                
+                // 为了调试，显示整个好友分组数据
+                console.log('完整的好友分组数据:', JSON.stringify(friendGroups, null, 2));
+                
+                friendGroups.forEach((groupData, groupIndex) => {
+                    console.log(`渲染第${groupIndex+1}个分组: ${groupData.name}，包含${groupData.friends.length}个好友`);
+                    
                     const groupDiv = document.createElement('div');
                     groupDiv.className = `friend-group ${groupData.open ? 'open' : ''}`;
-
+                    
+                    // 确保分组是可见的
+                    groupDiv.style.display = 'block';
+                    
                     const header = document.createElement('div');
                     header.className = 'group-header';
                     header.innerHTML = `
@@ -709,21 +780,41 @@
 
                     const friendsContainer = document.createElement('div');
                     friendsContainer.className = 'friends-container';
+                    
+                    // 确保好友容器可见
+                    if (groupData.open) {
+                        friendsContainer.style.display = 'block';
+                    } else {
+                        friendsContainer.style.display = 'none';
+                    }
 
-                    groupData.friends.forEach(friendData => {
-                        if (!friendData) return; // Add a guard clause here
+                    if (!groupData.friends || !Array.isArray(groupData.friends)) {
+                        console.error(`分组 ${groupData.name} 的好友列表不是数组:`, groupData.friends);
+                        groupData.friends = [];
+                    }
+
+                    groupData.friends.forEach((friendData, friendIndex) => {
+                        if (!friendData) {
+                            console.error(`好友数据为空: 分组=${groupData.name}, 索引=${friendIndex}`);
+                            return;
+                        }
+                        
+                        console.log(`渲染好友: QQ=${friendData.qq}, 昵称=${friendData.nickname}`);
 
                         const friendDiv = document.createElement('div');
                         friendDiv.className = `friend-item ${friendData.online ? '' : 'offline'}`;
-                        friendDiv.id = `friend-item-${friendData.qq}`; // Add an ID for later removal
+                        friendDiv.id = `friend-item-${friendData.qq}`;
+                        
+                        // 确保好友项可见
+                        friendDiv.style.display = 'flex';
 
                         let friendHtml = `
                             <div class="friend-avatar-wrapper">
-                                <img src="${friendData.avatar}" alt="Avatar">
+                                <img src="${friendData.avatar || 'assets/logo.png'}" alt="Avatar" onerror="this.src='assets/logo.png'">
                                 ${friendData.online ? '<span class="friend-status-icon"></span>' : ''}
                             </div>
                             <div class="friend-details">
-                                <span class="friend-name">${friendData.nickname}</span>
+                                <span class="friend-name">${friendData.nickname || '未知用户'}</span>
                                 <span class="friend-signature">${friendData.signature || '这个人很懒，什么都没留下'}</span>
                             </div>
                         `;
@@ -762,44 +853,107 @@
 
                     header.addEventListener('click', () => {
                         groupDiv.classList.toggle('open');
+                        // 更新可见性
+                        const isOpen = groupDiv.classList.contains('open');
+                        friendsContainer.style.display = isOpen ? 'block' : 'none';
                     });
                 });
+                
+                console.log('好友列表渲染完成');
+                
+                // 确保样式正确应用
+                setTimeout(() => {
+                    const addedGroups = document.querySelectorAll('.friend-group');
+                    console.log(`实际添加到DOM的分组数量: ${addedGroups.length}`);
+                    addedGroups.forEach(group => {
+                        console.log(`分组样式: display=${window.getComputedStyle(group).display}`);
+                    });
+                }, 100);
             }
 
             renderFriendList();
 
             // 添加好友请求处理逻辑
             window.electronAPI.onFriendRequestAccepted((newFriend) => {
-                const requestsGroup = friendGroups.find(g => g.isRequestGroup);
-                if (requestsGroup) {
-                    requestsGroup.friends = requestsGroup.friends.filter(r => r.qq !== newFriend.qq);
-                    requestsGroup.online--;
-                    requestsGroup.total--;
-                    
-                    // 更新好友请求徽章数量
-                    const requestCount = requestsGroup.friends.length;
-                    const badge = document.getElementById('friend-request-badge');
-                    if (badge) {
-                        badge.textContent = requestCount;
-                        badge.style.display = requestCount > 0 ? 'flex' : 'none';
-                    }
-                    
-                    // 如果没有剩余请求，移除好友请求组
-                    if (requestCount === 0) {
-                        friendGroups = friendGroups.filter(g => !g.isRequestGroup);
-                    }
-                }
-
-                let friendsGroup = friendGroups.find(g => g.name === "我的好友");
-                if (!friendsGroup) {
-                    friendsGroup = { name: "我的好友", online: 0, total: 0, open: true, friends: [] };
-                    friendGroups.push(friendsGroup);
-                }
-                friendsGroup.friends.push({ ...newFriend, online: true });
-                friendsGroup.online++;
-                friendsGroup.total++;
+                console.log('接受好友请求成功，新好友数据:', newFriend);
                 
-                renderFriendList();
+                try {
+                    if (!newFriend || !newFriend.qq) {
+                        console.error('接受好友请求成功，但新好友数据不完整:', newFriend);
+                        return;
+                    }
+                    
+                    const requestsGroup = friendGroups.find(g => g.isRequestGroup);
+                    if (requestsGroup) {
+                        console.log('找到请求组，从中移除已接受的好友请求');
+                        requestsGroup.friends = requestsGroup.friends.filter(r => r.qq !== newFriend.qq);
+                        requestsGroup.online--;
+                        requestsGroup.total--;
+                        
+                        // 更新好友请求徽章数量
+                        const requestCount = requestsGroup.friends.length;
+                        const badge = document.getElementById('friend-request-badge');
+                        if (badge) {
+                            badge.textContent = requestCount;
+                            badge.style.display = requestCount > 0 ? 'flex' : 'none';
+                        }
+                        
+                        // 如果没有剩余请求，移除好友请求组
+                        if (requestCount === 0) {
+                            console.log('没有剩余好友请求，移除请求组');
+                            friendGroups = friendGroups.filter(g => !g.isRequestGroup);
+                        }
+                    } else {
+                        console.log('未找到好友请求组');
+                    }
+
+                    // 找到或创建好友分组
+                    let friendsGroup = friendGroups.find(g => g.name === "我的好友");
+                    if (!friendsGroup) {
+                        console.log('未找到好友分组，创建新分组');
+                        friendsGroup = { name: "我的好友", online: 0, total: 0, open: true, friends: [] };
+                        friendGroups.push(friendsGroup);
+                    }
+                    
+                    // 检查好友是否已存在
+                    const existingFriend = friendsGroup.friends.find(f => f.qq === newFriend.qq);
+                    if (existingFriend) {
+                        console.log('好友已存在，不添加重复好友');
+                    } else {
+                        console.log('添加新好友到好友列表');
+                        // 添加完整的好友信息
+                        friendsGroup.friends.push({ 
+                            ...newFriend, 
+                            online: true,
+                            signature: newFriend.signature || '这个人很懒，什么都没留下',
+                            status: 'online'
+                        });
+                        friendsGroup.online++;
+                        friendsGroup.total++;
+                    }
+                    
+                    console.log('重新渲染好友列表');
+                    console.log('当前好友分组数据:', JSON.stringify(friendGroups, null, 2));
+                    
+                    // 先渲染内存中的数据，然后再从服务器获取最新数据
+                    renderFriendList();
+                    
+                    // 强制重新从服务器获取最新好友列表
+                    setTimeout(() => {
+                        if (window.currentUser && window.currentUser.qq) {
+                            console.log('从服务器刷新好友列表');
+                            updateFriendsList(window.currentUser.qq);
+                        } else {
+                            console.log('无法刷新好友列表，当前用户信息缺失');
+                        }
+                    }, 500); // 延迟半秒，确保服务器数据已更新
+                } catch (error) {
+                    console.error('处理好友请求接受事件时出错:', error);
+                    // 出错时也尝试刷新好友列表
+                    if (window.currentUser && window.currentUser.qq) {
+                        updateFriendsList(window.currentUser.qq);
+                    }
+                }
             });
 
             window.electronAPI.onFriendRequestRejected((requesterQq) => {
@@ -833,6 +987,7 @@
             const mainMenuPopup = document.getElementById('main-menu-popup');
             const switchAccountBtn = document.getElementById('switch-account-btn');
             
+            // 初始化菜单功能
             if (mainMenuBtn && mainMenuPopup) {
                 mainMenuBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -842,6 +997,66 @@
                 switchAccountBtn.addEventListener('click', () => {
                     window.electronAPI.switchAccount();
                 });
+                
+                // 添加测试声音的点击事件
+                const testSoundBtn = document.getElementById('test-sound-btn');
+                if (testSoundBtn) {
+                    testSoundBtn.addEventListener('click', () => {
+                        // 创建测试声音的弹出菜单
+                        const testSoundMenu = document.createElement('div');
+                        testSoundMenu.className = 'test-sound-menu';
+                        testSoundMenu.style.position = 'absolute';
+                        testSoundMenu.style.left = (mainMenuPopup.offsetLeft + mainMenuPopup.offsetWidth) + 'px';
+                        testSoundMenu.style.top = mainMenuPopup.offsetTop + 'px';
+                        testSoundMenu.style.backgroundColor = '#fff';
+                        testSoundMenu.style.border = '1px solid #ccc';
+                        testSoundMenu.style.borderRadius = '3px';
+                        testSoundMenu.style.padding = '5px';
+                        testSoundMenu.style.zIndex = '1000';
+                        testSoundMenu.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+                        
+                        // 添加三个声音选项
+                        const sounds = ['上线提示音', '信息提示音', '加好友提示'];
+                        sounds.forEach(sound => {
+                            const item = document.createElement('div');
+                            item.textContent = sound;
+                            item.style.padding = '5px 10px';
+                            item.style.cursor = 'pointer';
+                            item.style.borderRadius = '3px';
+                            
+                            item.addEventListener('mouseover', () => {
+                                item.style.backgroundColor = '#f0f0f0';
+                            });
+                            
+                            item.addEventListener('mouseout', () => {
+                                item.style.backgroundColor = 'transparent';
+                            });
+                            
+                            item.addEventListener('click', () => {
+                                window.electronAPI.playSound(sound);
+                                testSoundMenu.remove(); // 点击后移除菜单
+                                mainMenuPopup.style.display = 'none'; // 同时隐藏主菜单
+                            });
+                            
+                            testSoundMenu.appendChild(item);
+                        });
+                        
+                        document.body.appendChild(testSoundMenu);
+                        
+                        // 点击其他区域关闭测试声音菜单
+                        const closeTestSoundMenu = (e) => {
+                            if (!testSoundMenu.contains(e.target) && e.target !== testSoundBtn) {
+                                testSoundMenu.remove();
+                                document.removeEventListener('click', closeTestSoundMenu);
+                            }
+                        };
+                        
+                        // 延迟一下添加点击监听，防止立即触发
+                        setTimeout(() => {
+                            document.addEventListener('click', closeTestSoundMenu);
+                        }, 10);
+                    });
+                }
 
                 document.addEventListener('click', (e) => {
                     if (mainMenuPopup.style.display === 'block' && !mainMenuPopup.contains(e.target)) {
@@ -911,6 +1126,77 @@
                     }
                 });
             }
+
+            // 修改刷新按钮的事件监听器
+            const refreshFriendsBtn = document.getElementById('refresh-friends-btn');
+            if (refreshFriendsBtn) {
+                refreshFriendsBtn.addEventListener('click', async function() {
+                    console.log('手动刷新好友列表');
+                    
+                    // 添加旋转动画
+                    refreshFriendsBtn.classList.add('rotating');
+                    
+                    try {
+                        if (window.currentUser && window.currentUser.qq) {
+                            await updateFriendsList(window.currentUser.qq);
+                            // 显示刷新成功的提示
+                            showToast('好友列表刷新成功');
+                        } else {
+                            console.error('刷新失败：用户未登录');
+                        }
+                    } catch (error) {
+                        console.error('刷新好友列表出错:', error);
+                        showToast('刷新失败，请稍后重试', 'error');
+                    } finally {
+                        // 动画结束后移除旋转类
+                        setTimeout(() => {
+                            refreshFriendsBtn.classList.remove('rotating');
+                        }, 500);
+                    }
+                });
+            }
+
+            // 添加一个简单的Toast提示函数
+            function showToast(message, type = 'success') {
+                // 创建toast元素
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+                
+                // 添加样式
+                toast.style.position = 'fixed';
+                toast.style.bottom = '20px';
+                toast.style.left = '50%';
+                toast.style.transform = 'translateX(-50%)';
+                toast.style.padding = '10px 20px';
+                toast.style.borderRadius = '4px';
+                toast.style.color = 'white';
+                toast.style.zIndex = '9999';
+                toast.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+                
+                // 根据类型设置背景色
+                if (type === 'success') {
+                    toast.style.backgroundColor = '#4CAF50';
+                } else if (type === 'error') {
+                    toast.style.backgroundColor = '#f44336';
+                } else {
+                    toast.style.backgroundColor = '#2196F3';
+                }
+                
+                // 添加到文档
+                document.body.appendChild(toast);
+                
+                // 3秒后移除
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.5s ease';
+                    
+                    // 完全隐藏后移除元素
+                    setTimeout(() => {
+                        document.body.removeChild(toast);
+                    }, 500);
+                }, 3000);
+            }
         });
 
         document.getElementById('minimize-btn').addEventListener('click', () => window.electronAPI.minimizeWindow());
@@ -931,18 +1217,39 @@
                 return;
             }
             
+            console.log(`开始获取好友列表 - QQ: ${qq}`);
+            
             try {
                 const friendsResponse = await window.electronAPI.getFriends(qq);
+                console.log('获取好友列表API响应:', friendsResponse);
+                
                 if (friendsResponse.success) {
                     // 清空原有好友组数据
                     friendGroups = [];
                     
-                    // 渲染好友列表
-                    const friendData = friendsResponse.friends.map(f => ({ 
-                        ...f, 
-                        online: f.status === 'online' || f.status === 'away' || f.status === 'busy'
-                    }));
+                    // 检查好友数据
+                    if (!friendsResponse.friends || !Array.isArray(friendsResponse.friends)) {
+                        console.error('API返回的好友数据无效:', friendsResponse.friends);
+                        friendsResponse.friends = [];
+                    }
                     
+                    console.log(`收到好友数据: ${friendsResponse.friends.length}个好友`);
+                    
+                    // 渲染好友列表
+                    const friendData = friendsResponse.friends.map(f => {
+                        // 确保每个好友对象包含所有必要的字段
+                        const friendWithDefaults = { 
+                            ...f, 
+                            signature: f.signature || '这个人很懒，什么都没留下',
+                            status: f.status || 'online',
+                            online: f.status === 'online' || f.status === 'away' || f.status === 'busy'
+                        };
+                        
+                        console.log(`处理好友: QQ=${f.qq}, 昵称=${f.nickname}, 在线=${friendWithDefaults.online}`);
+                        return friendWithDefaults;
+                    });
+                    
+                    // 如果有好友数据，添加好友分组
                     friendGroups.push({
                         name: "我的好友",
                         online: friendData.filter(f => f.online).length,
@@ -951,9 +1258,24 @@
                         friends: friendData
                     });
                     
+                    console.log(`创建好友分组: 在线=${friendGroups[0].online}, 总数=${friendGroups[0].total}`);
+                    
+                    // 检查好友请求数据
+                    if (!friendsResponse.requests) {
+                        console.log('API返回的好友请求数据为空');
+                        friendsResponse.requests = [];
+                    }
+                    
                     // 渲染好友请求
                     if (friendsResponse.requests && friendsResponse.requests.length > 0) {
-                        const requestsData = friendsResponse.requests.map(r => ({ ...r, online: true }));
+                        console.log(`收到好友请求数据: ${friendsResponse.requests.length}个请求`);
+                        
+                        const requestsData = friendsResponse.requests.map(r => ({ 
+                            ...r, 
+                            online: true,
+                            signature: r.signature || '这个人很懒，什么都没留下'
+                        }));
+                        
                         friendGroups.unshift({ // 添加到列表开头
                             name: "好友请求",
                             online: requestsData.length,
@@ -978,10 +1300,13 @@
                         }
                     }
                     
+                    console.log('好友数据处理完成，准备渲染好友列表');
                     renderFriendList();
+                } else {
+                    console.error('获取好友列表失败:', friendsResponse.message);
                 }
             } catch (error) {
-                console.error('获取好友列表失败:', error);
+                console.error('获取好友列表出错:', error);
             }
         }
 
