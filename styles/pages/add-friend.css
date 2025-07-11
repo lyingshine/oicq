@@ -1,0 +1,136 @@
+body.add-friend-page {
+    background-color: #3c3c3c;
+    color: #f1f1f1;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.add-friend-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.add-friend-header {
+    background: #2a2a2a;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    -webkit-app-region: drag;
+    border-bottom: 1px solid #444;
+}
+
+.add-friend-title {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.add-friend-close {
+    font-size: 20px;
+    color: #aaa;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    padding: 0 5px;
+}
+
+.add-friend-close:hover {
+    color: #fff;
+}
+
+.add-friend-search {
+    padding: 15px;
+    background: #333;
+}
+
+.search-form {
+    display: flex;
+}
+
+.search-form input {
+    flex-grow: 1;
+    padding: 8px 12px;
+    border: 1px solid #555;
+    background-color: #2a2a2a;
+    color: #f1f1f1;
+    border-radius: 4px 0 0 4px;
+    outline: none;
+}
+
+.search-form input:focus {
+    border-color: #75b9f1;
+}
+
+.search-form button {
+    padding: 8px 15px;
+    border: none;
+    background-color: #75b9f1;
+    color: white;
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+}
+
+.search-form button:hover {
+    background-color: #5a9ed8;
+}
+
+.search-results {
+    flex-grow: 1;
+    overflow-y: auto;
+    background-color: #3c3c3c;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #444;
+}
+
+.search-result-item:hover {
+    background-color: #4a4a4a;
+}
+
+.result-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    margin-right: 12px;
+}
+
+.result-info {
+    flex-grow: 1;
+}
+
+.result-name {
+    font-weight: bold;
+}
+
+.result-qq {
+    font-size: 12px;
+    color: #999;
+}
+
+.add-button {
+    padding: 5px 10px;
+    border: none;
+    background-color: #2a9d4a;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.add-button:hover {
+    background-color: #238b41;
+}
+
+.add-button.sent {
+    background-color: #555;
+    cursor: default;
+}
+
+.no-results, .searching, .no-requests {
+    text-align: center;
+    padding: 20px;
+    color: #999;
+} 

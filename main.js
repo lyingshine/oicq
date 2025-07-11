@@ -8,6 +8,61 @@ const path = require('path');
 const Store = require('electron-store'); // Still used for avatar path
 const axios = require('axios');
 
+// 添加控制台日志过滤功能
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
+console.log = function(...args) {
+  // 只允许输出包含状态切换相关关键词的日志
+  const logString = args.join(' ').toLowerCase();
+  if (
+    logString.includes('状态更新') || 
+    logString.includes('状态=') || 
+    logString.includes('status=') || 
+    logString.includes('status：') ||
+    logString.includes('状态：')
+  ) {
+    originalConsoleLog.apply(console, args);
+  }
+};
+
+console.error = function(...args) {
+  // 保留所有状态更新相关的错误
+  const logString = args.join(' ').toLowerCase();
+  if (
+    logString.includes('状态更新') || 
+    logString.includes('状态=') || 
+    logString.includes('status')
+  ) {
+    originalConsoleError.apply(console, args);
+  }
+};
+
+function wrapMethod(obj, method, wrapper) {
+  const original = obj[method].bind(obj);
+  obj[method] = wrapper(original);
+}
+
+// 解决在 Windows 终端中输出中文乱码的问题
+if (process.platform === 'win32') {
+  const iconv = require('iconv-lite');
+  const streams = [process.stdout, process.stderr];
+
+  streams.forEach(stream => {
+      wrapMethod(stream, 'write', (originalWrite) => (chunk, encoding, callback) => {
+          if (typeof chunk === 'string') {
+              chunk = iconv.encode(chunk, 'gbk');
+              encoding = 'buffer';
+          } else if (Buffer.isBuffer(chunk) && encoding !== 'buffer') {
+              // 如果是Buffer但不是我们转换的，我们假设它是UTF8
+              chunk = iconv.encode(chunk.toString(), 'gbk');
+              encoding = 'buffer';
+          }
+          return originalWrite.call(stream, chunk, encoding, callback);
+      });
+  });
+}
+
 const store = new Store();
 const API_URL = 'http://localhost:3000/api';
 
@@ -18,35 +73,34 @@ const SOUND_TYPES = {
   FRIEND_REQUEST: '加好友提示'
 };
 
-function createWindow () {
-  const mainWindow = new BrowserWindow({
-    width: 440,
-    height: 330,
-    frame: false, // <-- Set window to be frameless
-    transparent: true, // 启用窗口透明
-    resizable: false, // 禁止调整大小
-    show: false, // 初始不显示窗口，等内容加载完成后再显示
+function createWindow(options, file) {
+  const defaultOptions = {
+    frame: false,
+    transparent: true,
+    resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
-  });
+  };
 
-  mainWindow.loadFile('login.html');
+  const win = new BrowserWindow({ ...defaultOptions, ...options });
+  win.loadFile(file);
+  return win;
+}
+
+function showApp() {
+  const winOptions = {
+    width: 440,
+    height: 330,
+    show: false,
+  };
+  mainWindow = createWindow(winOptions, 'login.html');
   
-  // 等待内容加载完成后再显示，避免闪烁
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.show();
   });
-
-  // 处理窗口的关闭请求
-  mainWindow.on('close', (e) => {
-    // 此处可以添加关闭前的确认逻辑
-    // 如果需要取消关闭，可以使用 e.preventDefault()
-  });
-
-  return mainWindow;
 }
 
 // 播放声音
@@ -92,22 +146,13 @@ function createRegisterWindow() {
     return;
   }
 
-  registerWindow = new BrowserWindow({
+  const winOptions = {
     width: 400,
     height: 450,
-    frame: false,
-    transparent: true,
-    resizable: false,
     parent: mainWindow,
     modal: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
-    },
-  });
-
-  registerWindow.loadFile('register.html');
+  };
+  registerWindow = createWindow(winOptions, 'register.html');
 
   registerWindow.on('closed', () => {
     registerWindow = null;
@@ -164,22 +209,13 @@ function createAddFriendWindow() {
         return;
     }
 
-    addFriendWindow = new BrowserWindow({
+    const winOptions = {
         width: 400,
-        height: 400, // 增加高度以适应标签页
+      height: 400,
         parent: mainWindow,
         modal: true,
-        frame: false,
-        resizable: false,
-        transparent: true, // 支持透明背景
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            contextIsolation: true,
-            nodeIntegration: false,
-        },
-    });
-
-    addFriendWindow.loadFile('add-friend.html');
+    };
+    addFriendWindow = createWindow(winOptions, 'add-friend.html');
 
     addFriendWindow.webContents.on('did-finish-load', async () => {
         addFriendWindow.webContents.send('current-user-qq', currentUserQq);
@@ -192,162 +228,28 @@ function createAddFriendWindow() {
     });
 }
 
-// 在文件顶部添加
-let lastFriendsUpdateTime = 0; // 用于跟踪上次更新时间
-
-// 修改getFriendList函数，添加更多调试信息
-async function getFriendList() {
-    if (!currentUserQq) {
-        console.error('获取好友列表失败：用户未登录');
-        return;
-    }
-
+const handle = (channel, callback) => {
+  ipcMain.handle(channel, async (event, ...args) => {
     try {
-        console.log(`开始获取QQ(${currentUserQq})的好友列表...`);
-        const response = await axios.get(`${API_URL}/friends/${currentUserQq}`);
-        
-        if (response.data.success) {
-            console.log('获取的好友数据:', response.data);
-
-            if (!response.data.friends || !Array.isArray(response.data.friends)) {
-                console.error('服务器返回的好友数据格式不正确:', response.data.friends);
-                return;
-            }
-
-            // 确保好友列表数据结构正确
-            friends = response.data.friends.map(friend => ({
-                ...friend,
-                signature: friend.signature || '这个人很懒，什么都没留下',
-                status: friend.status || 'online'
-            })).filter(friend => friend !== null); // 过滤掉无效项
-
-            console.log('处理后的好友数据:', friends);
-            lastFriendsUpdateTime = Date.now();
-
-            // 重新构建好友分组
-            updateFriendGroups();
-        } else {
-            console.error('获取好友列表失败:', response.data.message);
-        }
+      return await callback(event, ...args);
     } catch (error) {
-        console.error('获取好友列表时发生错误:', error);
-    }
-}
-
-// 修改updateFriendGroups函数，增强错误处理
-function updateFriendGroups() {
-    console.log('开始更新好友分组...');
-    try {
-        if (!Array.isArray(friends)) {
-            console.error('好友列表不是数组:', friends);
-            friends = [];
-        }
-        
-        // 确保好友请求分组存在
-        const hasFriendRequests = friendRequests && friendRequests.length > 0;
-        console.log(`有${hasFriendRequests ? friendRequests.length : 0}个好友请求`);
-
-        // 创建默认分组
-        friendGroups = [
-            {
-                id: 0,
-                name: '我的好友',
-                open: true,
-                friends: [],
-                total: 0,
-                online: 0
-            },
-            {
-                id: 1,
-                name: '家人',
-                open: false,
-                friends: [],
-                total: 0,
-                online: 0
-            },
-            {
-                id: 2,
-                name: '同学',
-                open: false,
-                friends: [],
-                total: 0,
-                online: 0
-            }
-        ];
-        
-        // 添加好友请求分组(如果有请求)
-        if (hasFriendRequests) {
-            friendGroups.unshift({
-                id: -1,
-                name: '好友请求',
-                open: true,
-                friends: friendRequests,
-                total: friendRequests.length,
-                online: friendRequests.length,
-                isRequestGroup: true
-            });
-        }
-        
-        // 分配好友到对应分组
-        friends.forEach(friend => {
-            if (!friend) return;
-            
-            let groupId = friend.groupId || 0;
-            
-            // 找到对应的分组
-            const group = friendGroups.find(g => g.id === groupId);
-            if (group) {
-                group.friends.push(friend);
-                group.total++;
-                if (friend.online) {
-                    group.online++;
-                }
+      console.error(`IPC Error on ${channel}:`, error);
+      if (error.response) {
+        return { success: false, message: error.response.data.message || '服务器响应错误。' };
+      } else if (error.request) {
+        return { success: false, message: '无法连接到服务器。' };
             } else {
-                // 如果找不到分组，添加到默认分组
-                console.warn(`找不到分组ID=${groupId}，将好友(QQ=${friend.qq})添加到默认分组`);
-                friendGroups[0].friends.push(friend);
-                friendGroups[0].total++;
-                if (friend.online) {
-                    friendGroups[0].online++;
+        return { success: false, message: error.message };
                 }
             }
         });
-
-        // 移除没有好友的分组（除了前3个默认分组）
-        // friendGroups = friendGroups.filter((group, index) => {
-        //     return index < 3 || (group.friends && group.friends.length > 0);
-        // });
-        
-        console.log('好友分组更新完成:', friendGroups);
-        
-        // 更新UI
-        // renderFriendList(); // This function is not defined in the original file, so it's commented out.
-    } catch (error) {
-        console.error('更新好友分组时发生错误:', error);
-    }
-}
-
-// 在文件中找到初始化函数，添加定期刷新好友列表的功能
-function initialize() {
-    // 保留原有代码
-    // ...
-
-    // 添加好友列表定期刷新
-    setInterval(async () => {
-        const now = Date.now();
-        if (now - lastFriendsUpdateTime > 30000) { // 30秒刷新一次
-            console.log('定期刷新好友列表...');
-            await getFriendList();
-        }
-    }, 30000);
-}
-
+};
 
 app.whenReady().then(() => {
-  mainWindow = createWindow();
+  showApp();
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) showApp();
   });
 });
 
@@ -407,19 +309,9 @@ ipcMain.on('switch-account', () => {
   }
 });
 
-ipcMain.handle('register', async (event, nickname, password) => {
-  try {
+handle('register', async (event, nickname, password) => {
     const response = await axios.post(`${API_URL}/register`, { nickname, password });
     return response.data;
-  } catch (error) {
-    if (error.response) {
-      return error.response.data;
-    } else if (error.request) {
-      return { success: false, message: '无法连接到服务器。' };
-    } else {
-      return { success: false, message: error.message };
-    }
-  }
 });
 
 ipcMain.on('login', async (event, username, password) => {
@@ -487,7 +379,7 @@ ipcMain.on('login', async (event, username, password) => {
   }
 });
 
-ipcMain.handle('dialog:openFile', async () => {
+handle('dialog:openFile', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
         properties: ['openFile'],
         filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif'] }]
@@ -499,13 +391,13 @@ ipcMain.handle('dialog:openFile', async () => {
     return null;
 });
 
-ipcMain.handle('get-avatar-path', async () => {
+handle('get-avatar-path', async () => {
   const avatar = store.get('avatar');
   return avatar;
 });
 
 // 更新用户资料
-ipcMain.handle('update-user-profile', async (event, qq, nickname, signature, avatar) => {
+handle('update-user-profile', async (event, qq, nickname, signature, avatar) => {
   console.log('收到更新用户资料请求:', { qq, nickname, signature, avatar: avatar ? '(图片数据)' : undefined });
   
   if (!qq) {
@@ -513,7 +405,6 @@ ipcMain.handle('update-user-profile', async (event, qq, nickname, signature, ava
     return { success: false, error: '缺少QQ号码' };
   }
   
-  try {
     // 准备更新的数据
     const userData = {
       nickname,
@@ -527,8 +418,8 @@ ipcMain.handle('update-user-profile', async (event, qq, nickname, signature, ava
     store.set('signature', signature);
     
     // 发送到服务器
-    console.log(`发送更新请求到: http://localhost:3000/update-profile/${qq}`);
-    const response = await axios.post(`http://localhost:3000/update-profile/${qq}`, userData);
+  console.log(`发送更新请求到: ${API_URL}/update-profile/${qq}`);
+  const response = await axios.post(`${API_URL}/update-profile/${qq}`, userData);
     console.log('服务器响应:', response.data);
     
     if (response.data.success) {
@@ -537,72 +428,72 @@ ipcMain.handle('update-user-profile', async (event, qq, nickname, signature, ava
     }
     
     return { success: true, data: response.data };
-  } catch (error) {
-    console.error('更新用户资料失败:', error.message);
-    // 检查是否是网络错误
-    if (error.code === 'ECONNREFUSED') {
-      return { success: false, error: '无法连接到服务器，请确保服务器已启动' };
-    }
-    return { success: false, error: error.message };
-  }
 });
 
-// 添加好友状态更新的处理程序
-ipcMain.handle('update-status', async (event, qq, status) => {
-  console.log('收到更新用户状态请求:', { qq, status });
-  
-  if (!qq) {
-    console.error('更新状态失败：缺少QQ号码');
-    return { success: false, error: '缺少QQ号码' };
-  }
-  
-  try {
-    // 准备更新的数据
-    const userData = { status };
-    
-    // 发送到服务器
-    console.log(`发送状态更新请求到: http://localhost:3000/update-status/${qq}`);
-    const response = await axios.post(`http://localhost:3000/update-status/${qq}`, userData);
-    console.log('服务器响应:', response.data);
-    
-    // 如果是上线状态，并且之前是离线状态，通知好友并播放上线提示音
-    if (status === 'online' && response.data.previousStatus === 'offline') {
-        // 通知相关好友该用户上线
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('friend-online', qq);
+// 状态更新处理
+handle('update-status', async (event, qq, status) => {
+    try {
+        console.log(`更新用户状态: QQ=${qq}, 状态=${status}`);
+        const response = await axios.post(`${API_URL}/status/update`, { qq, status });
+        
+        if (response.data.success) {
+            console.log('状态更新成功');
+            // 获取最新的用户信息并发送到渲染进程
+            const userResponse = await axios.get(`${API_URL}/users/${qq}`);
+            if (userResponse.data.success && userResponse.data.user) {
+                // 确保返回的用户对象包含status字段
+                const updatedUser = {
+                    ...userResponse.data.user,
+                    status: status // 确保状态字段正确设置
+                };
+                
+                console.log('发送更新后的用户信息到渲染进程:', updatedUser);
+                
+                // 确保mainWindow存在且未被销毁
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('user-info', updatedUser);
+                } else {
+                    console.error('无法发送用户信息：主窗口不存在或已被销毁');
+                }
+                
+                return { success: true, status: status, user: updatedUser };
+            } else {
+                console.error('获取更新后的用户信息失败');
+                return { success: true, status: status };
+            }
+        } else {
+            throw new Error(response.data.message || '状态更新失败');
         }
+    } catch (error) {
+        console.error('状态更新失败:', error);
+        throw error;
     }
-    
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error('更新用户状态失败:', error.message);
-    // 检查是否是网络错误
-    if (error.code === 'ECONNREFUSED') {
-      return { success: false, error: '无法连接到服务器，请确保服务器已启动' };
-    }
-    return { success: false, error: error.message };
-  }
 });
+
+// 获取状态文本
+function getStatusText(status) {
+    const statusMap = {
+        'online': '在线',
+        'away': '离开',
+        'busy': '忙碌',
+        'invisible': '隐身'
+    };
+    return statusMap[status] || '在线';
+}
 
 // 在适当的位置添加或更新好友API实现
 // 获取好友列表
-ipcMain.handle('get-friends', async (event, qq) => {
-  try {
+handle('get-friends', async (event, qq) => {
     console.log(`向服务器请求好友列表: QQ=${qq}`);
-    const response = await axios.get(`${API_URL}/api/friends/${qq}`);
+  const response = await axios.get(`${API_URL}/friends/${qq}`);
     console.log(`获取好友列表响应:`, response.data);
     return response.data;
-  } catch (error) {
-    console.error('获取好友列表失败:', error.message);
-    return { success: false, message: error.message, friends: [] };
-  }
 });
 
 // 接受好友请求
-ipcMain.handle('accept-friend-request', async (event, userQq, requesterQq) => {
-  try {
+handle('accept-friend-request', async (event, userQq, requesterQq) => {
     console.log(`接受好友请求: 用户=${userQq}, 请求方=${requesterQq}`);
-    const response = await axios.post(`${API_URL}/api/friends/accept`, {
+  const response = await axios.post(`${API_URL}/friends/accept`, {
       userQq, 
       requesterQq
     });
@@ -614,62 +505,43 @@ ipcMain.handle('accept-friend-request', async (event, userQq, requesterQq) => {
     }
     
     return response.data;
-  } catch (error) {
-    console.error('接受好友请求失败:', error.message);
-    return { success: false, message: error.message };
-  }
 });
 
 // 拒绝好友请求
-ipcMain.handle('reject-friend-request', async (event, userQq, requesterQq) => {
-  try {
+handle('reject-friend-request', async (event, userQq, requesterQq) => {
     console.log(`拒绝好友请求: 用户=${userQq}, 请求方=${requesterQq}`);
-    const response = await axios.post(`${API_URL}/api/friends/reject`, {
+  const response = await axios.post(`${API_URL}/friends/reject`, {
       userQq, 
       requesterQq
     });
     console.log('拒绝好友请求响应:', response.data);
     return response.data;
-  } catch (error) {
-    console.error('拒绝好友请求失败:', error.message);
-    return { success: false, message: error.message };
-  }
 });
 
 // 发送好友请求
-ipcMain.handle('send-friend-request', async (event, senderQq, recipientQq) => {
-  try {
+handle('send-friend-request', async (event, senderQq, recipientQq) => {
     console.log(`发送好友请求: 发送者=${senderQq}, 接收者=${recipientQq}`);
-    const response = await axios.post(`${API_URL}/api/friends/request`, {
+  const response = await axios.post(`${API_URL}/friends/request`, {
       senderQq, 
       recipientQq
     });
     console.log('发送好友请求响应:', response.data);
     return response.data;
-  } catch (error) {
-    console.error('发送好友请求失败:', error.message);
-    return { success: false, message: error.message };
-  }
 });
 
 // 搜索用户
-ipcMain.handle('search-users', async (event, term, currentUserQq) => {
-  try {
+handle('search-users', async (event, term, currentUserQq) => {
     console.log(`搜索用户: 关键词=${term}, 当前用户=${currentUserQq}`);
-    const response = await axios.post(`${API_URL}/api/users/search`, {
+  const response = await axios.post(`${API_URL}/users/search`, {
       term, 
       currentUserQq
     });
     console.log('搜索用户响应:', response.data);
     return response.data;
-  } catch (error) {
-    console.error('搜索用户失败:', error.message);
-    return { success: false, message: error.message, users: [] };
-  }
 });
 
 // This is now deprecated and handled by the new request system.
-ipcMain.handle('add-friend', async (event, userQq, friendQq) => {
+handle('add-friend', async (event, userQq, friendQq) => {
     // This function is kept to avoid breaking the old flow, but it does nothing.
     console.log('Deprecated: add-friend IPC used. Switched to request system.');
     return { success: false, message: 'This feature has been updated. Please use the new add friend window.' };

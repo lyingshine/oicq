@@ -1,0 +1,432 @@
+.title-bar {
+    background: linear-gradient(to bottom, #bfe1ff, #89c5f7);
+    border-bottom: 1px solid #4e94d8;
+    color: #003366;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.window-control {
+    border: 1px solid #6fa8dc;
+    background-color: #a2d2f7;
+    color: #003366;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+}
+
+.window-control:hover {
+    background-color: #cce8ff;
+}
+
+.main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    background-color: #3f98d9;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+.sidebar {
+    width: 40px;
+    background: linear-gradient(to right, #4998e0, #5aabee);
+    border-right: 1px solid #3a8ccc;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8px 0;
+}
+
+.sidebar-icons-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sidebar-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+}
+
+.sidebar-icon i {
+    font-size: 20px;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.sidebar-icon:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-icon.active {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.icon-penguin::before { content: "\f007"; }
+.icon-qzone::before { content: "\f005"; }
+.icon-photo::before { content: "\f03e"; }
+.icon-file::before { content: "\f15b"; }
+.icon-yixin::before { content: "\f0e0"; }
+
+.avatar-container {
+    width: 40px;
+    height: 40px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.main-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 3px;
+    object-fit: cover;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.status-icon {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.status-icon.online { background-color: #44b549; }
+.status-icon.away { background-color: #ffc107; }
+.status-icon.busy { background-color: #f44336; }
+.status-icon.invisible { background-color: #9e9e9e; }
+
+.sidebar-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.scroll-up, .scroll-down {
+    width: 40px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #fff;
+}
+
+.scroll-up:hover, .scroll-down:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.scroll-up::before { content: "\f077"; }
+.scroll-down::before { content: "\f078"; }
+
+.main-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    border: 1px solid #6fa8dc;
+    margin: 0 4px 4px 0;
+    background: #fff;
+}
+
+.header {
+    padding: 8px;
+    background: linear-gradient(to bottom, #f0f8ff, #e0eefb);
+    border-bottom: 1px solid #c5ddec;
+    flex-shrink: 0;
+}
+
+.user-info-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 5px;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-line-1 {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+}
+
+.nickname {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000;
+}
+
+.user-signature {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background: #f7f7f7;
+    border-bottom: 1px solid #ddd;
+}
+
+.search-bar input {
+    flex: 1;
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.tab-header {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    background: #f0f0f0;
+    border-bottom: 1px solid #ddd;
+}
+
+.tab-header span {
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    border-right: 1px solid #ddd;
+}
+
+.tab-header span:hover {
+    background: #e5e5e5;
+}
+
+.friend-list {
+    flex: 1; /* Take up available vertical space */
+    overflow-y: auto; /* Allow scrolling for friend list */
+    background-color: #fff;
+}
+
+.friend-group-header {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.friend-group-header:hover {
+    background-color: #f9f9f9;
+}
+
+.friend-item.offline .friend-name, .friend-item.offline .friend-signature { color: #888; }
+.friend-item.offline img { filter: grayscale(100%); opacity: 0.8; }
+
+.friend-avatar {
+    border: 1px solid #eee;
+}
+
+.friend-name {
+    color: #333;
+}
+
+.friend-signature {
+    color: #777;
+}
+
+.bottom-tabs {
+    display: flex;
+    border-top: 1px solid #ddd;
+    background: #f7f7f7;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    text-align: center;
+    color: #666;
+}
+
+.tab-button:hover {
+    background: #e5e5e5;
+}
+
+.tab-button.active {
+    background: #e0eefb;
+    color: #000;
+}
+
+.footer {
+    display: flex;
+    padding: 4px 8px;
+    background: #f7f7f7;
+    border-top: 1px solid #ddd;
+}
+
+.footer-icons-left {
+    display: flex;
+    gap: 8px;
+}
+
+.footer-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #666;
+}
+
+.footer-icon:hover {
+    color: #000;
+}
+
+.footer-icon::before {
+    color: #555;
+}
+
+.footer-icon:hover::before {
+    color: #007bff;
+}
+
+.icon-menu::before { content: "\f0c9"; }
+.icon-find-friend::before { content: "\f234"; }
+.icon-tools::before { content: "\f013"; }
+.icon-message::before { content: "\f0e0"; }
+.icon-antivirus::before { content: "\f132"; }
+
+.main-menu-popup, .status-menu-popup, .profile-card {
+    background: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.main-menu-popup li:hover, .status-menu-popup li:hover {
+    background-color: #f0f0f0;
+}
+
+.profile-card-save {
+    background-color: #2a9d4a;
+}
+.profile-card-save:hover {
+    background-color: #238b41;
+}
+
+.profile-card-cancel {
+    background-color: #aaa;
+}
+.profile-card-cancel:hover {
+    background-color: #888;
+}
+
+.friend-request-actions .accept-btn {
+    background-color: #2a9d4a;
+}
+.friend-request-actions .accept-btn:hover {
+    background-color: #238b41;
+}
+.friend-request-actions .reject-btn {
+    background-color: #d9534f;
+}
+.friend-request-actions .reject-btn:hover {
+    background-color: #c9302c;
+}
+.footer-icon .notification-badge {
+    background-color: #d9534f;
+}
+
+.status-menu-popup {
+    position: absolute;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    min-width: 120px;
+}
+
+.status-menu-popup ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.status-menu-popup li {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.status-menu-popup li:hover {
+    background: #f5f5f5;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    display: inline-block;
+}
+
+.status-dot.online { background-color: #44b549; }
+.status-dot.away { background-color: #ffc107; }
+.status-dot.busy { background-color: #f44336; }
+.status-dot.invisible { background-color: #9e9e9e; } 
+
+.status-menu {
+    position: absolute;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    display: none;
+    min-width: 120px;
+    top: 50px;  /* 默认位置，会被JS覆盖 */
+    left: 50px; /* 默认位置，会被JS覆盖 */
+}
+
+.status-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 5px 0;
+}
+
+.status-menu li {
+    padding: 6px 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #333;
+}
+
+.status-menu li:hover {
+    background-color: #f5f5f5;
+}
+
+.status-menu li i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-menu li i.online { background-color: #44b549; }
+.status-menu li i.away { background-color: #ffc107; }
+.status-menu li i.busy { background-color: #f44336; }
+.status-menu li i.invisible { background-color: #9e9e9e; } 

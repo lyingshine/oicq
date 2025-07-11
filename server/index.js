@@ -4,12 +4,103 @@ const cors = require('cors');
 const fs = require('fs').promises;
 const path = require('path');
 
+// 添加 iconv-lite 依赖
+const iconv = require('iconv-lite');
+
+// 添加控制台日志过滤功能
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+
+console.log = function(...args) {
+  // 只允许输出包含状态切换相关关键词的日志
+  const logString = args.join(' ').toLowerCase();
+  if (
+    logString.includes('状态更新') || 
+    logString.includes('状态=') || 
+    logString.includes('status=') || 
+    logString.includes('状态：') ||
+    logString.includes('status：')
+  ) {
+    originalConsoleLog.apply(console, args);
+  }
+};
+
+console.error = function(...args) {
+  // 保留所有状态更新相关的错误
+  const logString = args.join(' ').toLowerCase();
+  if (
+    logString.includes('状态更新') || 
+    logString.includes('状态=') || 
+    logString.includes('status')
+  ) {
+    originalConsoleError.apply(console, args);
+  }
+};
+
 const app = express();
 const PORT = 3000;
 const DB_PATH = path.join(__dirname, 'db.json');
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// 设置控制台输出编码
+process.stdout.setEncoding('utf8');
+process.stderr.setEncoding('utf8');
+
+// 更新的编码处理函数
+function wrapConsoleOutput() {
+    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+    const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
+    process.stdout.write = function(chunk, encoding, callback) {
+        if (typeof chunk === 'string') {
+            chunk = iconv.encode(iconv.decode(Buffer.from(chunk, 'utf8'), 'utf8'), 'gbk');
+        }
+        return originalStdoutWrite.call(this, chunk, encoding, callback);
+    };
+
+    process.stderr.write = function(chunk, encoding, callback) {
+        if (typeof chunk === 'string') {
+            chunk = iconv.encode(iconv.decode(Buffer.from(chunk, 'utf8'), 'utf8'), 'gbk');
+        }
+        return originalStderrWrite.call(this, chunk, encoding, callback);
+    };
+
+    // 重写 console.log 和 console.error
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+
+    console.log = function(...args) {
+        const output = args.map(arg => 
+            typeof arg === 'string' ? arg : JSON.stringify(arg)
+        ).join(' ');
+        originalStdoutWrite.call(process.stdout, output + '\n');
+    };
+
+    console.error = function(...args) {
+        const output = args.map(arg => 
+            typeof arg === 'string' ? arg : JSON.stringify(arg)
+        ).join(' ');
+        originalStderrWrite.call(process.stderr, output + '\n');
+    };
+}
+
+// 在 Windows 平台上应用编码处理
+if (process.platform === 'win32') {
+    wrapConsoleOutput();
+}
+
+// asyncHandler to wrap async routes and catch errors
+const asyncHandler = fn => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+// Centralized error handler middleware
+const errorHandler = (err, req, res, next) => {
+    console.error('错误:', err);
+    res.status(500).json({ success: false, message: '服务器错误', error: err.message });
+};
 
 // Helper function to read the database
 const readDB = async () => {
@@ -42,7 +133,7 @@ const writeDB = async (data) => {
 };
 
 // Register endpoint
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', asyncHandler(async (req, res) => {
     const { nickname, password } = req.body;
 
     if (!nickname || !password) {
@@ -85,10 +176,10 @@ app.post('/api/register', async (req, res) => {
     await writeDB(db);
 
     res.json({ success: true, qq: newQQ });
-});
+}));
 
 // Login endpoint
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', asyncHandler(async (req, res) => {
     const { username, password } = req.body;
     
     if (!username || !password) {
@@ -123,14 +214,36 @@ app.post('/api/login', async (req, res) => {
     } else {
         res.status(401).json({ success: false, message: '账号或密码错误！' });
     }
-});
+}));
+
+// 获取用户信息
+app.get('/api/users/:qq', asyncHandler(async (req, res) => {
+    const qq = req.params.qq;
+    
+    const db = await readDB();
+    const user = db.users[qq];
+    
+    if (user) {
+        res.json({ 
+            success: true, 
+            user: {
+                qq: qq,
+                nickname: user.nickname,
+                signature: user.signature || '这个人很懒，什么都没留下',
+                avatar: user.avatar,
+                status: user.status || 'online'
+            }
+        });
+    } else {
+        res.status(404).json({ success: false, message: '用户不存在' });
+    }
+}));
 
 // 修改 Get friends list API
-app.get('/api/friends/:qq', async (req, res) => {
+app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
     const { qq } = req.params;
     console.log(`获取好友列表请求: QQ=${qq}`);
     
-    try {
         const db = await readDB();
         const user = db.users[qq];
 
@@ -181,14 +294,10 @@ app.get('/api/friends/:qq', async (req, res) => {
             friends: friendsDetails, 
             requests: requestsDetails
         });
-    } catch (error) {
-        console.error('获取好友列表出错:', error);
-        res.status(500).json({ success: false, message: '服务器错误', error: error.message });
-    }
-});
+}));
 
 // Search for users
-app.post('/api/users/search', async (req, res) => {
+app.post('/api/users/search', asyncHandler(async (req, res) => {
     const { term, currentUserQq } = req.body;
     if (!term) {
         return res.status(400).json({ success: false, message: 'Search term is required.' });
@@ -209,10 +318,10 @@ app.post('/api/users/search', async (req, res) => {
         }
     }
     res.json({ success: true, users: results });
-});
+}));
 
 // Send a friend request
-app.post('/api/friends/request', async (req, res) => {
+app.post('/api/friends/request', asyncHandler(async (req, res) => {
     const { senderQq, recipientQq } = req.body;
     const db = await readDB();
 
@@ -234,10 +343,10 @@ app.post('/api/friends/request', async (req, res) => {
 
     await writeDB(db);
     res.json({ success: true, message: 'Friend request sent.' });
-});
+}));
 
 // Accept a friend request
-app.post('/api/friends/accept', async (req, res) => {
+app.post('/api/friends/accept', asyncHandler(async (req, res) => {
     const { userQq, requesterQq } = req.body;
     console.log(`接受好友请求 - 用户: ${userQq}, 请求方: ${requesterQq}`);
     
@@ -278,6 +387,9 @@ app.post('/api/friends/accept', async (req, res) => {
     requester.friendRequestsSent = requester.friendRequestsSent.filter(qq => qq !== userQq);
 
     // Add to friends (both ways)
+    if (!user.friends) user.friends = [];
+    if (!requester.friends) requester.friends = [];
+    
     if (!user.friends.includes(requesterQq)) {
         user.friends.push(requesterQq);
         console.log(`将 ${requesterQq} 添加到 ${userQq} 的好友列表中`);
@@ -318,10 +430,10 @@ app.post('/api/friends/accept', async (req, res) => {
 
     console.log('接受好友请求成功，返回新好友信息:', newFriendInfo);
     res.json({ success: true, message: 'Friend request accepted.', newFriend: newFriendInfo });
-});
+}));
 
 // Reject a friend request
-app.post('/api/friends/reject', async (req, res) => {
+app.post('/api/friends/reject', asyncHandler(async (req, res) => {
     const { userQq, requesterQq } = req.body;
     const db = await readDB();
 
@@ -338,154 +450,22 @@ app.post('/api/friends/reject', async (req, res) => {
 
     await writeDB(db);
     res.json({ success: true, message: 'Friend request rejected.' });
-});
-
-
-// Add a friend (DEPRECATED - now uses request system)
-app.post('/api/friends/add', async (req, res) => {
-    return res.status(400).json({ success: false, message: 'This endpoint is deprecated. Use /api/friends/request instead.' });
-});
-
-// 测试接口：直接添加好友关系
-app.post('/api/test/add-friend', async (req, res) => {
-    const { userQq, friendQq } = req.body;
-    
-    if (!userQq || !friendQq) {
-        return res.status(400).json({ success: false, message: '缺少用户QQ或好友QQ参数' });
-    }
-    
-    console.log(`测试接口：添加好友关系 - 用户: ${userQq}, 好友: ${friendQq}`);
-    
-    try {
-        const db = await readDB();
-        
-        // 检查用户和好友是否存在
-        if (!db.users[userQq] || !db.users[friendQq]) {
-            return res.status(404).json({ success: false, message: '用户或好友不存在' });
-        }
-        
-        // 检查是否已经是好友
-        if (db.users[userQq].friends.includes(friendQq) && db.users[friendQq].friends.includes(userQq)) {
-            return res.json({ success: true, message: '已经是好友，无需重复添加' });
-        }
-        
-        // 添加好友关系（双向）
-        if (!db.users[userQq].friends.includes(friendQq)) {
-            db.users[userQq].friends.push(friendQq);
-        }
-        if (!db.users[friendQq].friends.includes(userQq)) {
-            db.users[friendQq].friends.push(userQq);
-        }
-        
-        // 保存到数据库
-        await writeDB(db);
-        
-        console.log('测试接口：好友关系添加成功');
-        return res.json({ success: true, message: '好友关系添加成功' });
-    } catch (error) {
-        console.error('测试接口错误:', error);
-        return res.status(500).json({ success: false, message: '服务器内部错误' });
-    }
-});
-
-// 测试接口：重置好友关系
-app.post('/api/test/reset-friends', async (req, res) => {
-    const { userQq } = req.body;
-    
-    if (!userQq) {
-        return res.status(400).json({ success: false, message: '缺少用户QQ参数' });
-    }
-    
-    console.log(`测试接口：重置用户好友关系 - 用户: ${userQq}`);
-    
-    try {
-        const db = await readDB();
-        
-        // 检查用户是否存在
-        if (!db.users[userQq]) {
-            return res.status(404).json({ success: false, message: '用户不存在' });
-        }
-        
-        // 获取当前好友列表的副本
-        const currentFriends = [...db.users[userQq].friends];
-        
-        // 清空该用户的好友列表
-        db.users[userQq].friends = [];
-        
-        // 从每个好友的列表中也移除该用户
-        for (const friendQq of currentFriends) {
-            if (db.users[friendQq]) {
-                db.users[friendQq].friends = db.users[friendQq].friends.filter(qq => qq !== userQq);
-            }
-        }
-        
-        // 保存到数据库
-        await writeDB(db);
-        
-        console.log('测试接口：好友关系重置成功');
-        return res.json({ success: true, message: '好友关系重置成功' });
-    } catch (error) {
-        console.error('测试接口错误:', error);
-        return res.status(500).json({ success: false, message: '服务器内部错误' });
-    }
-});
-
-// 更新在线状态
-app.post('/update-status/:qq', async (req, res) => {
-    const qq = req.params.qq;
-    const { status } = req.body;
-    
-    console.log(`收到更新状态请求: QQ=${qq}, 状态=${status}`);
-    
-    try {
-        const db = await readDB();
-        const user = db.users[qq];
-        
-        if (user) {
-            console.log(`找到用户: ${user.nickname}, 更新状态为: ${status}`);
-            // 更新用户状态
-            user.status = status;
-            
-            // 保存到文件
-            await writeDB(db);
-            console.log('用户数据已保存到文件');
-            
-            res.json({ 
-                success: true, 
-                message: '状态已更新'
-            });
-        } else {
-            console.error(`用户不存在: QQ=${qq}`);
-            res.status(404).json({ success: false, message: '用户不存在' });
-        }
-    } catch (error) {
-        console.error('保存用户状态失败:', error);
-        res.status(500).json({ success: false, message: '保存用户状态失败', error: error.message });
-    }
-});
+}));
 
 // 更新用户资料
-app.post('/update-profile/:qq', async (req, res) => {
+app.post('/api/update-profile/:qq', asyncHandler(async (req, res) => {
     const qq = req.params.qq;
     const { nickname, signature, avatar } = req.body;
     
-    console.log(`收到更新用户资料请求: QQ=${qq}`);
-    console.log(`更新内容: 昵称=${nickname}, 签名=${signature}, 头像=${avatar ? '有图片' : '无图片'}`);
-    
-    try {
         const db = await readDB();
         const user = db.users[qq];
         
         if (user) {
-            console.log(`找到用户: ${user.nickname}`);
-            // 更新用户资料
             if (nickname) user.nickname = nickname;
             if (signature) user.signature = signature;
             if (avatar) user.avatar = avatar;
             
-            // 保存到文件
             await writeDB(db);
-            console.log('用户数据已保存到文件');
             
             res.json({ 
                 success: true, 
@@ -498,480 +478,79 @@ app.post('/update-profile/:qq', async (req, res) => {
                 }
             });
         } else {
-            console.error(`用户不存在: QQ=${qq}`);
             res.status(404).json({ success: false, message: '用户不存在' });
-        }
-    } catch (error) {
-        console.error('保存用户数据失败:', error);
-        res.status(500).json({ success: false, message: '保存用户数据失败', error: error.message });
     }
-});
+}));
 
-// 为测试工具提供一个简单的HTML页面
-app.get('/test', (req, res) => {
-    res.send(`
-    <!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8">
-        <title>好友关系测试工具</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #f5f5f5;
-            }
-            .container {
-                display: flex;
-                gap: 20px;
-                flex-wrap: wrap;
-            }
-            .panel {
-                flex: 1;
-                min-width: 300px;
-                background-color: white;
-                border-radius: 5px;
-                padding: 15px;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            }
-            h1, h2, h3 {
-                margin-top: 0;
-                color: #333;
-            }
-            .form-group {
-                margin-bottom: 15px;
-            }
-            label {
-                display: block;
-                margin-bottom: 5px;
-                font-weight: bold;
-            }
-            input, select, button {
-                padding: 8px;
-                width: 100%;
-                box-sizing: border-box;
-                border: 1px solid #ddd;
-                border-radius: 3px;
-            }
-            button {
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                cursor: pointer;
-                font-weight: bold;
-            }
-            button:hover {
-                background-color: #45a049;
-            }
-            .response {
-                margin-top: 15px;
-                padding: 10px;
-                background-color: #f9f9f9;
-                border: 1px solid #ddd;
-                border-radius: 3px;
-                white-space: pre-wrap;
-                max-height: 200px;
-                overflow-y: auto;
-                font-family: monospace;
-            }
-            .error {
-                color: #d32f2f;
-            }
-            .success {
-                color: #388e3c;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-bottom: 15px;
-            }
-            table, th, td {
-                border: 1px solid #ddd;
-            }
-            th, td {
-                padding: 8px;
-                text-align: left;
-            }
-            th {
-                background-color: #f2f2f2;
-            }
-            tr:nth-child(even) {
-                background-color: #f9f9f9;
-            }
-            .status-dot {
-                display: inline-block;
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                margin-right: 5px;
-            }
-            .online {
-                background-color: #4CAF50;
-            }
-            .offline {
-                background-color: #ccc;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>OICQ 好友关系测试工具</h1>
-        
-        <div class="container">
-            <div class="panel">
-                <h2>查询用户信息</h2>
-                <div class="form-group">
-                    <label for="user-qq">用户QQ:</label>
-                    <input type="text" id="user-qq" placeholder="输入QQ号">
-                </div>
-                <button id="query-user">查询</button>
-                <div id="user-response" class="response"></div>
-            </div>
-            
-            <div class="panel">
-                <h2>手动添加好友关系</h2>
-                <div class="form-group">
-                    <label for="user1-qq">用户1 QQ:</label>
-                    <input type="text" id="user1-qq" placeholder="输入第一个用户QQ">
-                </div>
-                <div class="form-group">
-                    <label for="user2-qq">用户2 QQ:</label>
-                    <input type="text" id="user2-qq" placeholder="输入第二个用户QQ">
-                </div>
-                <button id="add-friend">添加好友关系</button>
-                <div id="add-response" class="response"></div>
-            </div>
-        </div>
-        
-        <div class="container">
-            <div class="panel">
-                <h2>重置用户好友关系</h2>
-                <div class="form-group">
-                    <label for="reset-qq">用户QQ:</label>
-                    <input type="text" id="reset-qq" placeholder="输入要重置的用户QQ">
-                </div>
-                <button id="reset-friends">重置好友关系</button>
-                <div id="reset-response" class="response"></div>
-            </div>
-            
-            <div class="panel">
-                <h2>数据库浏览</h2>
-                <button id="refresh-db">刷新数据</button>
-                <div id="db-response" class="response"></div>
-            </div>
-        </div>
-        
-        <div class="container">
-            <div class="panel">
-                <h2>好友列表浏览</h2>
-                <div class="form-group">
-                    <label for="friends-qq">用户QQ:</label>
-                    <input type="text" id="friends-qq" placeholder="输入用户QQ">
-                </div>
-                <button id="get-friends">获取好友列表</button>
-                <div id="friends-table-container"></div>
-                <div id="friends-response" class="response"></div>
-            </div>
-            
-            <div class="panel">
-                <h2>好友请求测试</h2>
-                <div class="form-group">
-                    <label for="sender-qq">发送者QQ:</label>
-                    <input type="text" id="sender-qq" placeholder="输入发送者QQ">
-                </div>
-                <div class="form-group">
-                    <label for="recipient-qq">接收者QQ:</label>
-                    <input type="text" id="recipient-qq" placeholder="输入接收者QQ">
-                </div>
-                <button id="send-request">发送好友请求</button>
-                <div id="request-response" class="response"></div>
-            </div>
-        </div>
-        
-        <script>
-            document.getElementById('query-user').addEventListener('click', async () => {
-                const qq = document.getElementById('user-qq').value.trim();
-                const responseDiv = document.getElementById('user-response');
-                
-                if (!qq) {
-                    responseDiv.innerHTML = '<span class="error">请输入QQ号</span>';
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(\`/api/user/\${qq}\`);
-                    const data = await response.json();
-                    responseDiv.innerHTML = JSON.stringify(data, null, 2);
-                    responseDiv.className = response.ok ? 'response success' : 'response error';
-                } catch (error) {
-                    responseDiv.innerHTML = \`错误: \${error.message}\`;
-                    responseDiv.className = 'response error';
-                }
-            });
-            
-            document.getElementById('add-friend').addEventListener('click', async () => {
-                const user1 = document.getElementById('user1-qq').value.trim();
-                const user2 = document.getElementById('user2-qq').value.trim();
-                const responseDiv = document.getElementById('add-response');
-                
-                if (!user1 || !user2) {
-                    responseDiv.innerHTML = '<span class="error">请输入两个用户的QQ号</span>';
-                    return;
-                }
-                
-                try {
-                    const response = await fetch('/api/test/add-friend', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ userQq: user1, friendQq: user2 })
-                    });
-                    const data = await response.json();
-                    responseDiv.innerHTML = JSON.stringify(data, null, 2);
-                    responseDiv.className = response.ok ? 'response success' : 'response error';
-                    
-                    if (response.ok && data.success) {
-                        // 刷新数据
-                        document.getElementById('refresh-db').click();
-                    }
-                } catch (error) {
-                    responseDiv.innerHTML = \`错误: \${error.message}\`;
-                    responseDiv.className = 'response error';
-                }
-            });
-            
-            document.getElementById('reset-friends').addEventListener('click', async () => {
-                const qq = document.getElementById('reset-qq').value.trim();
-                const responseDiv = document.getElementById('reset-response');
-                
-                if (!qq) {
-                    responseDiv.innerHTML = '<span class="error">请输入QQ号</span>';
-                    return;
-                }
-                
-                if (!confirm(\`确定要重置用户 \${qq} 的所有好友关系吗？这将删除所有好友连接。\`)) {
-                    return;
-                }
-                
-                try {
-                    const response = await fetch('/api/test/reset-friends', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ userQq: qq })
-                    });
-                    const data = await response.json();
-                    responseDiv.innerHTML = JSON.stringify(data, null, 2);
-                    responseDiv.className = response.ok ? 'response success' : 'response error';
-                    
-                    if (response.ok && data.success) {
-                        // 刷新数据
-                        document.getElementById('refresh-db').click();
-                    }
-                } catch (error) {
-                    responseDiv.innerHTML = \`错误: \${error.message}\`;
-                    responseDiv.className = 'response error';
-                }
-            });
-            
-            document.getElementById('refresh-db').addEventListener('click', async () => {
-                const responseDiv = document.getElementById('db-response');
-                
-                try {
-                    const response = await fetch('/api/test/db');
-                    const data = await response.json();
-                    
-                    // 简化数据显示，只显示用户列表和其好友关系
-                    const simplifiedData = {
-                        users: {}
-                    };
-                    
-                    for (const qq in data.users) {
-                        const user = data.users[qq];
-                        simplifiedData.users[qq] = {
-                            nickname: user.nickname,
-                            friends: user.friends || [],
-                            friendRequestsSent: user.friendRequestsSent || [],
-                            friendRequestsReceived: user.friendRequestsReceived || []
-                        };
-                    }
-                    
-                    responseDiv.innerHTML = JSON.stringify(simplifiedData, null, 2);
-                    responseDiv.className = 'response success';
-                } catch (error) {
-                    responseDiv.innerHTML = \`错误: \${error.message}\`;
-                    responseDiv.className = 'response error';
-                }
-            });
-            
-            document.getElementById('get-friends').addEventListener('click', async () => {
-                const qq = document.getElementById('friends-qq').value.trim();
-                const responseDiv = document.getElementById('friends-response');
-                const tableContainer = document.getElementById('friends-table-container');
-                
-                if (!qq) {
-                    responseDiv.innerHTML = '<span class="error">请输入QQ号</span>';
-                    tableContainer.innerHTML = '';
-                    return;
-                }
-                
-                try {
-                    const response = await fetch(\`/api/friends/\${qq}\`);
-                    const data = await response.json();
-                    responseDiv.innerHTML = JSON.stringify(data, null, 2);
-                    responseDiv.className = response.ok ? 'response success' : 'response error';
-                    
-                    if (response.ok && data.success) {
-                        // 创建表格显示好友列表
-                        let tableHtml = '<h3>好友列表</h3>';
-                        
-                        if (data.friends && data.friends.length > 0) {
-                            tableHtml += \`
-                                <table>
-                                    <tr>
-                                        <th>QQ</th>
-                                        <th>昵称</th>
-                                        <th>状态</th>
-                                        <th>签名</th>
-                                    </tr>
-                            \`;
-                            
-                            data.friends.forEach(friend => {
-                                const isOnline = friend.status === 'online';
-                                tableHtml += \`
-                                    <tr>
-                                        <td>\${friend.qq}</td>
-                                        <td>\${friend.nickname}</td>
-                                        <td><span class="status-dot \${isOnline ? 'online' : 'offline'}"></span>\${friend.status || 'offline'}</td>
-                                        <td>\${friend.signature}</td>
-                                    </tr>
-                                \`;
-                            });
-                            
-                            tableHtml += '</table>';
-                        } else {
-                            tableHtml += '<p>没有好友</p>';
-                        }
-                        
-                        // 添加好友请求表格
-                        tableHtml += '<h3>好友请求</h3>';
-                        
-                        if (data.requests && data.requests.length > 0) {
-                            tableHtml += \`
-                                <table>
-                                    <tr>
-                                        <th>QQ</th>
-                                        <th>昵称</th>
-                                        <th>签名</th>
-                                    </tr>
-                            \`;
-                            
-                            data.requests.forEach(request => {
-                                tableHtml += \`
-                                    <tr>
-                                        <td>\${request.qq}</td>
-                                        <td>\${request.nickname}</td>
-                                        <td>\${request.signature}</td>
-                                    </tr>
-                                \`;
-                            });
-                            
-                            tableHtml += '</table>';
-                        } else {
-                            tableHtml += '<p>没有好友请求</p>';
-                        }
-                        
-                        tableContainer.innerHTML = tableHtml;
-                    } else {
-                        tableContainer.innerHTML = '<p class="error">获取好友列表失败</p>';
-                    }
-                } catch (error) {
-                    responseDiv.innerHTML = \`错误: \${error.message}\`;
-                    responseDiv.className = 'response error';
-                    tableContainer.innerHTML = '';
-                }
-            });
-            
-            document.getElementById('send-request').addEventListener('click', async () => {
-                const senderQq = document.getElementById('sender-qq').value.trim();
-                const recipientQq = document.getElementById('recipient-qq').value.trim();
-                const responseDiv = document.getElementById('request-response');
-                
-                if (!senderQq || !recipientQq) {
-                    responseDiv.innerHTML = '<span class="error">请输入发送者和接收者QQ</span>';
-                    return;
-                }
-                
-                try {
-                    const response = await fetch('/api/friends/request', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ senderQq, recipientQq })
-                    });
-                    const data = await response.json();
-                    responseDiv.innerHTML = JSON.stringify(data, null, 2);
-                    responseDiv.className = response.ok ? 'response success' : 'response error';
-                } catch (error) {
-                    responseDiv.innerHTML = \`错误: \${error.message}\`;
-                    responseDiv.className = 'response error';
-                }
-            });
-            
-            // 初始加载时自动刷新数据库
-            document.addEventListener('DOMContentLoaded', () => {
-                document.getElementById('refresh-db').click();
-            });
-        </script>
-    </body>
-    </html>
-    `);
-});
-
-// 添加测试API用于查询用户信息
-app.get('/api/user/:qq', async (req, res) => {
-    const { qq } = req.params;
+// 更新在线状态
+app.post('/api/update-status/:qq', asyncHandler(async (req, res) => {
+    const qq = req.params.qq;
+    const { status } = req.body;
     
-    try {
         const db = await readDB();
         const user = db.users[qq];
         
-        if (!user) {
-            return res.status(404).json({ success: false, message: '用户不存在' });
-        }
-        
-        // 返回用户信息，但不包括密码
-        const { password, ...userInfo } = user;
-        return res.json({ success: true, user: userInfo });
-    } catch (error) {
-        console.error('获取用户信息错误:', error);
-        return res.status(500).json({ success: false, message: '服务器错误' });
+    if (user) {
+        user.status = status;
+        await writeDB(db);
+        res.json({ success: true, message: '状态已更新' });
+                        } else {
+        res.status(404).json({ success: false, message: '用户不存在' });
     }
-});
+}));
 
-// 添加测试API用于获取数据库内容
-app.get('/api/test/db', async (req, res) => {
+// 更新用户状态
+app.post('/api/status/update', asyncHandler(async (req, res) => {
+    const { qq, status } = req.body;
+    
+    if (!qq || !status) {
+        return res.status(400).json({ 
+            success: false, 
+            message: 'QQ号和状态都是必需的'
+        });
+    }
+
+    // 验证状态值
+    const validStatuses = ['online', 'away', 'busy', 'invisible'];
+    if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+            success: false, 
+            message: '无效的状态值'
+        });
+    }
+    
     try {
         const db = await readDB();
-        // 移除密码信息
-        const safeDb = { ...db };
-        safeDb.users = { ...db.users };
         
-        Object.keys(safeDb.users).forEach(qq => {
-            const { password, ...userInfo } = safeDb.users[qq];
-            safeDb.users[qq] = userInfo;
+        if (!db.users[qq]) {
+            return res.status(404).json({ 
+                success: false, 
+                message: '用户不存在'
+            });
+        }
+
+        // 更新用户状态
+        db.users[qq].status = status;
+        await writeDB(db);
+
+        console.log(`用户 ${qq} 状态更新为: ${status}`);
+        
+        res.json({ 
+            success: true, 
+            message: '状态更新成功',
+            status: status
         });
-        
-        return res.json(safeDb);
     } catch (error) {
-        console.error('获取数据库内容错误:', error);
-        return res.status(500).json({ success: false, message: '服务器错误' });
+        console.error('更新状态时出错:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: '更新状态失败',
+            error: error.message
+        });
     }
-});
+}));
+
+app.use(errorHandler);
 
 app.listen(PORT, async () => {
     console.log(`服务器热重载模式已启动，监听端口 ${PORT}`);
