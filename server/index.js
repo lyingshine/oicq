@@ -14,13 +14,28 @@ const originalConsoleError = console.error;
 console.log = function(...args) {
   // 只允许输出包含状态切换相关关键词的日志
   const logString = args.join(' ').toLowerCase();
-  if (
+  
+  // 是否应该显示此日志
+  const shouldLog = (
+    // 新的日志格式，带有分隔线和标签的日志
+    logString.includes('----------') ||
+    logString.includes('状态更新请求') ||
+    logString.includes('请求体') ||
+    logString.includes('从数据库读取') ||
+    logString.includes('更新状态:') ||
+    logString.includes('状态更新成功') ||
+    logString.includes('返回完整用户信息') ||
+    
+    // 原有的状态相关关键词
     logString.includes('状态更新') || 
     logString.includes('状态=') || 
     logString.includes('status=') || 
     logString.includes('状态：') ||
     logString.includes('status：')
-  ) {
+  );
+  
+  // 如果应该显示，则调用原始的console.log
+  if (shouldLog) {
     originalConsoleLog.apply(console, args);
   }
 };
@@ -28,11 +43,23 @@ console.log = function(...args) {
 console.error = function(...args) {
   // 保留所有状态更新相关的错误
   const logString = args.join(' ').toLowerCase();
-  if (
+  
+  // 是否应该显示此错误
+  const shouldLog = (
+    // 特定的错误类型
+    logString.includes('状态更新失败') ||
+    logString.includes('无效的状态值') ||
+    logString.includes('用户不存在') ||
+    logString.includes('更新状态时出错') ||
+    
+    // 原有的状态相关关键词
     logString.includes('状态更新') || 
     logString.includes('状态=') || 
     logString.includes('status')
-  ) {
+  );
+  
+  // 如果应该显示，则调用原始的console.error
+  if (shouldLog) {
     originalConsoleError.apply(console, args);
   }
 };

@@ -15,25 +15,52 @@ const originalConsoleError = console.error;
 console.log = function(...args) {
   // 只允许输出包含状态切换相关关键词的日志
   const logString = args.join(' ').toLowerCase();
-  if (
+  
+  // 允许显示的日志条件
+  const shouldLog = (
+    // 我们的新日志格式 - 带有UI、网络、数据等标签的日志
+    logString.includes('[ui]') ||
+    logString.includes('[网络]') ||
+    logString.includes('[数据]') ||
+    logString.includes('[成功]') ||
+    logString.includes('[错误]') ||
+    logString.includes('[恢复]') ||
+    logString.includes('[清理]') ||
+    
+    // 原有的状态相关关键词
     logString.includes('状态更新') || 
     logString.includes('状态=') || 
     logString.includes('status=') || 
     logString.includes('status：') ||
-    logString.includes('状态：')
-  ) {
+    logString.includes('状态：') ||
+    
+    // 使用时间戳格式的日志
+    logString.includes('状态切换') ||
+    logString.includes('状态流程')
+  );
+  
+  if (shouldLog) {
     originalConsoleLog.apply(console, args);
   }
 };
 
 console.error = function(...args) {
-  // 保留所有状态更新相关的错误
+  // 保留所有状态更新相关的错误和带标签的错误
   const logString = args.join(' ').toLowerCase();
-  if (
+  const shouldLog = (
+    // 带标签的错误日志
+    logString.includes('[ui错误]') ||
+    logString.includes('[网络错误]') ||
+    logString.includes('[数据错误]') ||
+    logString.includes('[错误]') ||
+    
+    // 原有的状态相关关键词
     logString.includes('状态更新') || 
     logString.includes('状态=') || 
     logString.includes('status')
-  ) {
+  );
+  
+  if (shouldLog) {
     originalConsoleError.apply(console, args);
   }
 };
@@ -96,7 +123,7 @@ function showApp() {
     height: 330,
     show: false,
   };
-  mainWindow = createWindow(winOptions, 'login.html');
+  mainWindow = createWindow(winOptions, 'client/login.html');
   
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.show();
@@ -152,7 +179,7 @@ function createRegisterWindow() {
     parent: mainWindow,
     modal: true,
   };
-  registerWindow = createWindow(winOptions, 'register.html');
+  registerWindow = createWindow(winOptions, 'client/register.html');
 
   registerWindow.on('closed', () => {
     registerWindow = null;
@@ -215,7 +242,7 @@ function createAddFriendWindow() {
         parent: mainWindow,
         modal: true,
     };
-    addFriendWindow = createWindow(winOptions, 'add-friend.html');
+    addFriendWindow = createWindow(winOptions, 'client/add-friend.html');
 
     addFriendWindow.webContents.on('did-finish-load', async () => {
         addFriendWindow.webContents.send('current-user-qq', currentUserQq);
@@ -349,8 +376,8 @@ ipcMain.on('login', async (event, username, password) => {
                 mainWindow.hide();
         }
         
-        // 加载主界面
-                mainWindow.loadFile('main.html');
+        // 更新main窗口，显示主界面
+        mainWindow.loadFile('client/main.html');
         
         // 等待页面加载完成后再执行后续操作
                 ipcMain.once('main-page-ready', () => {

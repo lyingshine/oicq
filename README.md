@@ -23,8 +23,8 @@
 # 克隆仓库
 git clone [仓库地址]
 
-# 进入项目目录
-cd oicq
+# 进入客户端目录
+cd oicq/client
 
 # 安装依赖
 npm install
@@ -37,13 +37,21 @@ npm start
 
 ```bash
 # 进入服务端目录
-cd server
+cd oicq/server
 
 # 安装服务端依赖
 npm install
 
 # 启动服务器
-node index.js
+npm start
+```
+
+### 同时启动前后端
+
+```bash
+# 在根目录执行
+npm install
+npm run dev
 ```
 
 ## 技术栈
@@ -55,28 +63,39 @@ node index.js
 
 ## 项目结构
 
+项目采用客户端和服务端完全分离的结构：
+
 ```
 oicq/
-  ├── assets/            # 资源文件（图标、图片等）
-  ├── styles/            # CSS样式文件
-  ├── vendor/            # 第三方库（FontAwesome等）
+  ├── client/            # 客户端代码
+  │   ├── assets/        # 资源文件（图标、图片等）
+  │   ├── styles/        # CSS样式文件
+  │   ├── vendor/        # 第三方库（FontAwesome等）
+  │   ├── renderer/      # 渲染进程脚本
+  │   ├── sound/         # 声音资源
+  │   ├── login.html     # 登录页面
+  │   ├── register.html  # 注册页面
+  │   ├── main.html      # 主界面
+  │   ├── main.js        # 主进程文件
+  │   ├── preload.js     # 预加载脚本
+  │   └── package.json   # 客户端配置
   ├── server/            # 服务端代码
   │   ├── db.json        # 数据存储
-  │   └── index.js       # 服务器入口文件
-  ├── login.html         # 登录页面
-  ├── register.html      # 注册页面
-  ├── main.html          # 主界面
-  ├── main.js            # 主进程文件
-  ├── preload.js         # 预加载脚本
-  └── package.json       # 项目配置
+  │   ├── index.js       # 服务器入口文件
+  │   └── package.json   # 服务端配置
+  ├── start.js           # 项目总启动脚本
+  └── package.json       # 项目根配置
 ```
+
+> 注意：根目录下可能会存在node_modules目录，这是因为在将依赖分离到各自子目录的过程中，部分Electron相关文件可能正在被使用而无法删除。这些文件不会影响项目的正常运行，并且在版本控制中已被忽略。
 
 ## 使用方法
 
-1. 启动服务端：进入server目录，运行`node index.js`
-2. 启动客户端：在项目根目录运行`npm start`
-3. 通过登录界面进入系统，或注册新账号
-4. 在主界面可以查看联系人、修改个性化设置等
+1. 启动服务端：进入server目录，运行`npm start`
+2. 启动客户端：进入client目录，运行`npm start`
+3. 或使用根目录的`npm run dev`同时启动客户端和服务端
+4. 通过登录界面进入系统，或注册新账号
+5. 在主界面可以查看联系人、修改个性化设置等
 
 ## 开发说明
 

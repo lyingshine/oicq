@@ -67,7 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const status = statusItem.dataset.status;
                 console.log('选择状态:', status);
                 updateStatus(status);
-                statusMenuPopup.style.display = 'none';
+                
+                // 使用平滑过渡效果隐藏菜单
+                statusMenuPopup.classList.remove('show');
+                setTimeout(() => {
+                    if (!statusMenuPopup.classList.contains('show')) {
+                        statusMenuPopup.style.display = 'none';
+                    }
+                }, 200);
             }
         });
     }
@@ -90,15 +97,138 @@ document.addEventListener('DOMContentLoaded', () => {
     // 点击其他地方关闭菜单
     document.addEventListener('click', (e) => {
         if (!mainMenuPopup.contains(e.target) && e.target.id !== 'main-menu-btn') {
-            mainMenuPopup.style.display = 'none';
+            // 使用平滑过渡效果隐藏菜单
+            mainMenuPopup.classList.remove('show');
+            setTimeout(() => {
+                if (!mainMenuPopup.classList.contains('show')) {
+                    mainMenuPopup.style.display = 'none';
+                }
+            }, 200);
         }
+        
         if (!statusMenuPopup.contains(e.target) && e.target.id !== 'avatar-status-icon') {
-            statusMenuPopup.style.display = 'none';
+            // 使用平滑过渡效果隐藏菜单
+            statusMenuPopup.classList.remove('show');
+            setTimeout(() => {
+                if (!statusMenuPopup.classList.contains('show')) {
+                    statusMenuPopup.style.display = 'none';
+                }
+            }, 200);
         }
     });
 
     // 告知主进程页面已准备好接收数据
     window.electronAPI.mainPageReady();
+});
+
+// 添加一个全局函数，用于测试和诊断状态更新问题
+window.testStatusLogging = function() {
+    console.log('----------- 开始状态日志测试 -----------');
+    console.log(`[UI] 测试UI标签日志`);
+    console.log(`[网络] 测试网络标签日志`);
+    console.log(`[数据] 测试数据标签日志`);
+    console.log(`[成功] 测试成功标签日志`);
+    console.log(`[错误] 测试错误标签日志`);
+    console.log(`状态更新测试`);
+    console.log(`状态=online`);
+    console.log(`Status=busy`);
+    console.error(`[UI错误] 测试UI错误日志`);
+    console.error(`[网络错误] 测试网络错误日志`);
+    console.error(`[数据错误] 测试数据错误日志`);
+    console.error(`状态更新失败测试`);
+    console.log('----------- 结束状态日志测试 -----------');
+    
+    // 当前用户状态信息
+    if (window.currentUser) {
+        console.log(`当前用户状态信息: QQ=${window.currentUser.qq}, 状态=${window.currentUser.status}`);
+        
+        // 获取DOM状态
+        const statusIconEl = document.getElementById('avatar-status-icon');
+        console.log(`DOM状态图标信息:`, {
+            element: statusIconEl ? '存在' : '不存在',
+            className: statusIconEl ? statusIconEl.className : 'N/A',
+            dataStatus: statusIconEl ? statusIconEl.getAttribute('data-status') : 'N/A',
+            backgroundColor: statusIconEl ? statusIconEl.style.backgroundColor : 'N/A'
+        });
+        
+        // 比较数据和DOM状态是否一致
+        if (statusIconEl) {
+            const isConsistent = statusIconEl.classList.contains(window.currentUser.status);
+            console.log(`数据和DOM状态是否一致: ${isConsistent ? '是' : '否'}`);
+            
+            if (!isConsistent) {
+                console.log(`警告: 数据状态(${window.currentUser.status})与DOM状态不一致`);
+            }
+        }
+    } else {
+        console.log(`警告: 未找到当前用户信息`);
+    }
+    
+    return "状态日志测试完成，请查看控制台输出";
+};
+
+// 添加一个临时元素，用于显示状态诊断信息
+document.addEventListener('DOMContentLoaded', () => {
+    // 创建一个小按钮，点击后运行状态诊断
+    const diagnosticButton = document.createElement('button');
+    diagnosticButton.textContent = '状态诊断';
+    diagnosticButton.style.cssText = `
+        position: fixed;
+        bottom: 5px;
+        right: 5px;
+        background: rgba(0,0,0,0.5);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        padding: 2px 5px;
+        font-size: 10px;
+        z-index: 9999;
+        opacity: 0.5;
+    `;
+    
+    diagnosticButton.addEventListener('click', () => {
+        window.testStatusLogging();
+        
+        // 显示诊断结果
+        const results = document.createElement('div');
+        results.style.cssText = `
+            position: fixed;
+            bottom: 30px;
+            right: 5px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 9999;
+            max-width: 300px;
+        `;
+        
+        if (window.currentUser) {
+            const statusIconEl = document.getElementById('avatar-status-icon');
+            const isConsistent = statusIconEl && statusIconEl.classList.contains(window.currentUser.status);
+            
+            results.innerHTML = `
+                <strong>状态诊断:</strong><br>
+                数据状态: ${window.currentUser.status || 'unknown'}<br>
+                DOM状态: ${statusIconEl ? statusIconEl.className : 'element not found'}<br>
+                是否一致: ${isConsistent ? '✓' : '✗'}<br>
+                <br>
+                <small>查看控制台获取更多信息</small>
+            `;
+        } else {
+            results.innerHTML = '<strong>未找到用户数据</strong>';
+        }
+        
+        document.body.appendChild(results);
+        
+        // 3秒后移除
+        setTimeout(() => {
+            document.body.removeChild(results);
+        }, 3000);
+    });
+    
+    document.body.appendChild(diagnosticButton);
 });
 
 // 初始化用户信息
@@ -184,20 +314,44 @@ window.electronAPI.onFriendRequestCount((count) => {
 
 // 函数定义
 // 状态菜单相关函数
+// 修改状态菜单的显示和隐藏函数
 function toggleStatusMenu(event) {
-    console.log('toggleStatusMenu被调用');
+    console.log('切换状态菜单');
+    
     const statusMenuPopup = document.getElementById('status-menu-popup');
     if (!statusMenuPopup) {
-        console.error('找不到状态菜单元素');
+        console.error('状态菜单元素未找到');
         return;
     }
-
-    const rect = event.target.getBoundingClientRect();
-    console.log('状态图标位置:', rect);
-    statusMenuPopup.style.top = `${rect.bottom + 5}px`;
-    statusMenuPopup.style.left = `${rect.left}px`;
-    statusMenuPopup.style.display = statusMenuPopup.style.display === 'block' ? 'none' : 'block';
-    console.log('状态菜单显示状态:', statusMenuPopup.style.display);
+    
+    // 获取菜单当前可见性状态
+    const isVisible = statusMenuPopup.classList.contains('show');
+    
+    if (isVisible) {
+        // 如果菜单已显示，则隐藏它（使用CSS过渡效果）
+        statusMenuPopup.classList.remove('show');
+        // 设置一个延迟，等待过渡效果完成后再真正隐藏元素
+        setTimeout(() => {
+            if (!statusMenuPopup.classList.contains('show')) {
+                statusMenuPopup.style.display = 'none';
+            }
+        }, 200); // 与CSS过渡时间一致
+    } else {
+        // 如果菜单隐藏，则显示它
+        // 先确保元素可见，以便过渡效果可见
+        statusMenuPopup.style.display = 'block';
+        // 使用setTimeout确保display更改已应用，然后添加show类触发过渡
+        setTimeout(() => {
+            statusMenuPopup.classList.add('show');
+        }, 10);
+        
+        // 定位菜单
+        if (event) {
+            const rect = event.target.getBoundingClientRect();
+            statusMenuPopup.style.top = `${rect.bottom + 5}px`;
+            statusMenuPopup.style.left = `${rect.left}px`;
+        }
+    }
 }
 
 async function updateStatus(status) {
@@ -206,7 +360,7 @@ async function updateStatus(status) {
     
     if (!window.currentUser) {
         console.error('未找到当前用户信息，无法更新状态');
-        alert('状态更新失败: 未找到当前用户信息');
+        showNotification('状态更新失败: 未找到当前用户信息', 'error');
         return;
     }
 
@@ -229,6 +383,19 @@ async function updateStatus(status) {
     const startTime = Date.now();
     
     try {
+        // 获取状态图标元素，用于添加过渡效果
+        const statusIconEl = document.getElementById('avatar-status-icon');
+        if (statusIconEl) {
+            // 添加过渡动画效果，减少状态切换时的闪烁感
+            statusIconEl.style.transition = 'background-color 0.3s ease, transform 0.2s ease';
+            // 添加缩放动画，增强反馈
+            statusIconEl.style.transform = 'scale(1.2)';
+            // 短暂延迟后恢复正常大小
+            setTimeout(() => {
+                statusIconEl.style.transform = 'scale(1)';
+            }, 200);
+        }
+        
         // 先乐观地更新UI
         console.log(`[UI] 乐观更新UI为新状态: ${status}`);
         const tempUser = { ...window.currentUser, status: status };
@@ -276,9 +443,10 @@ async function updateStatus(status) {
         localStorage.setItem('currentUser', JSON.stringify(window.currentUser));
         console.log(`[数据] 用户数据已更新到本地存储`);
         
-        // 再次强制更新UI，确保显示正确
-        console.log(`[UI] 再次更新UI以确保状态显示正确`);
-        applyUserInfoToUI(window.currentUser);
+        // 再次更新UI，确保显示正确 - 但避免闪烁
+        requestAnimationFrame(() => {
+            applyUserInfoToUI(window.currentUser);
+        });
         
         // 通知用户状态更新成功
         const elapsedTime = Date.now() - startTime;
@@ -289,25 +457,30 @@ async function updateStatus(status) {
         const elapsedTime = Date.now() - startTime;
         console.error(`[错误] 状态更新失败，耗时: ${elapsedTime}ms，错误: ${error.message}`);
         
+        // 获取状态图标元素，用于添加恢复动画
+        const statusIconEl = document.getElementById('avatar-status-icon');
+        if (statusIconEl) {
+            // 添加轻微抖动动画，表示更新失败
+            statusIconEl.style.animation = 'none';
+            setTimeout(() => {
+                statusIconEl.style.animation = 'shake 0.4s ease-in-out';
+            }, 10);
+        }
+        
         // 恢复原始状态的UI
         console.log(`[恢复] 开始恢复UI到原始状态: ${originalStatus}`);
         window.currentUser.status = originalStatus;
         
-        console.log(`[恢复] 恢复中 - 当前全局状态: ${window.currentUser.status}`);
-        console.log(`[恢复] 恢复中 - 开始重新应用UI`);
+        // 使用requestAnimationFrame确保平滑过渡
+        requestAnimationFrame(() => {
+            applyUserInfoToUI(window.currentUser);
+        });
         
-        applyUserInfoToUI(window.currentUser);
         console.log(`[恢复] 恢复UI完成`);
         
-        // 使用更明显的方式显示错误
-        const errorMessage = error.message || '状态更新失败';
-        console.error(`[UI] 显示错误提示: ${errorMessage}`);
-        
         // 显示错误通知
+        const errorMessage = error.message || '状态更新失败';
         showNotification(`状态更新失败: ${errorMessage}`, 'error');
-        
-        // 同时保留alert作为备选
-        alert('状态更新失败: ' + errorMessage);
     } finally {
         // 清除状态更新进行中标志
         isStatusUpdateInProgress = false;
@@ -390,98 +563,74 @@ function applyUserInfoToUI(user) {
     }
     
     console.log(`[UI] 开始更新UI: 用户=${user.qq}, 状态=${user.status}`);
-    console.log(`[UI] 当前DOM状态: 正在检查...`);
     
-    // 检查当前DOM状态
-    const statusIconEl = document.getElementById('avatar-status-icon');
-    const currentUIStatus = statusIconEl ? statusIconEl.classList.contains(user.status) : 'unknown';
-    console.log(`[UI] 当前DOM状态图标类: ${statusIconEl ? statusIconEl.className : 'not found'}`);
-    console.log(`[UI] DOM是否已经包含正确的状态类? ${currentUIStatus ? 'Yes' : 'No'}`);
-
-    // 强制执行UI更新
-    // 延迟很短的时间后执行，确保DOM有机会更新
-    setTimeout(() => {
+    // 批量更新DOM，减少重绘次数
+    // 使用requestAnimationFrame确保在下一次绘制帧之前完成所有DOM更新
+    window.requestAnimationFrame(() => {
         try {
             // 更新昵称
             const nicknameEl = document.getElementById('nickname');
-            if (nicknameEl) {
+            if (nicknameEl && nicknameEl.textContent !== user.nickname) {
                 nicknameEl.textContent = user.nickname || `用户${user.qq}`;
                 console.log(`[UI] 昵称已更新: ${nicknameEl.textContent}`);
-            } else {
-                console.error('[UI错误] 找不到昵称元素');
             }
 
             // 更新个性签名
             const signatureEl = document.getElementById('signature-text');
             if (signatureEl) {
-                signatureEl.textContent = user.signature || '这个人很懒，什么都没留下';
-                console.log(`[UI] 签名已更新: ${signatureEl.textContent.substring(0, 20)}${signatureEl.textContent.length > 20 ? '...' : ''}`);
-            } else {
-                console.error('[UI错误] 找不到签名元素');
+                const newSignature = user.signature || '这个人很懒，什么都没留下';
+                if (signatureEl.textContent !== newSignature) {
+                    signatureEl.textContent = newSignature;
+                    console.log(`[UI] 签名已更新: ${signatureEl.textContent.substring(0, 20)}${signatureEl.textContent.length > 20 ? '...' : ''}`);
+                }
             }
 
             // 更新头像
             const avatarEl = document.getElementById('main-avatar-img');
-            if (avatarEl) {
+            if (avatarEl && avatarEl.src !== user.avatar) {
                 if (user.avatar) {
-                    avatarEl.src = user.avatar;
-                    avatarEl.onerror = () => {
+                    // 预加载图片，加载完成后再更换src，防止闪烁
+                    const tempImg = new Image();
+                    tempImg.onload = () => {
+                        avatarEl.src = user.avatar;
+                    };
+                    tempImg.onerror = () => {
                         console.warn('[UI警告] 头像加载失败，使用默认头像');
                         avatarEl.src = 'assets/logo.png';
                     };
-                    console.log(`[UI] 头像已更新: ${user.avatar.substring(0, 30)}...`);
+                    tempImg.src = user.avatar;
                 } else {
                     avatarEl.src = 'assets/logo.png';
-                    console.log(`[UI] 已设置默认头像`);
                 }
-            } else {
-                console.error('[UI错误] 找不到头像元素');
             }
 
             // 更新在线状态 - 文本
             const statusTextEl = document.querySelector('.status-text');
             if (statusTextEl) {
                 const statusText = `[${getStatusText(user.status || 'online')}]`;
-                
-                // 尝试多种方式更新文本，确保更新成功
-                try {
+                if (statusTextEl.textContent !== statusText) {
                     statusTextEl.textContent = statusText;
-                    statusTextEl.innerHTML = statusText;
-                    // 强制重绘
-                    statusTextEl.style.display = 'none';
-                    statusTextEl.offsetHeight; // 触发回流
-                    statusTextEl.style.display = '';
-                    
-                    console.log(`[UI] 状态文本已更新为: ${statusText}`);
-                } catch (e) {
-                    console.error('[UI错误] 更新状态文本失败:', e);
                 }
-            } else {
-                console.error('[UI错误] 找不到状态文本元素');
             }
 
-            // 更新头像上的状态指示器
+            // 更新头像上的状态指示器 - 使用CSS类控制，避免直接操作style
             const avatarStatusIconEl = document.getElementById('avatar-status-icon');
             if (avatarStatusIconEl) {
-                // 记录原始类名
-                const originalClassName = avatarStatusIconEl.className;
-                console.log(`[UI] 状态图标原始类名: ${originalClassName}`);
+                const newStatus = user.status || 'online';
                 
-                // 先清除所有状态相关的类
+                // 如果状态没有变化，不做任何操作
+                if (avatarStatusIconEl.classList.contains(newStatus)) {
+                    return;
+                }
+                
+                // 移除所有状态类
                 avatarStatusIconEl.classList.remove('online', 'away', 'busy', 'invisible', 'test-fail');
                 
-                // 设置新的类名
-                const newStatus = user.status || 'online';
-                const newClassName = `status-icon ${newStatus}`;
-                
-                // 多种方式设置类名，确保更新成功
-                avatarStatusIconEl.className = newClassName;
-                avatarStatusIconEl.setAttribute('class', newClassName);
-                
-                // 添加自定义属性记录状态
+                // 添加新状态类
+                avatarStatusIconEl.classList.add(newStatus);
                 avatarStatusIconEl.setAttribute('data-status', newStatus);
                 
-                // 为确保类被正确应用，直接设置对应的背景颜色
+                // 状态色彩映射
                 const statusColors = {
                     'online': '#44b549',
                     'away': '#ffc107',
@@ -490,37 +639,20 @@ function applyUserInfoToUI(user) {
                     'test-fail': '#ff4444'
                 };
                 
-                if (statusColors[newStatus]) {
+                // 记录原始背景色
+                const originalColor = avatarStatusIconEl.style.backgroundColor;
+                
+                // 如果有对应的颜色，并且与当前不同，才设置新颜色
+                if (statusColors[newStatus] && originalColor !== statusColors[newStatus]) {
                     avatarStatusIconEl.style.backgroundColor = statusColors[newStatus];
                 }
-                
-                console.log(`[UI] 状态图标已更新: ${originalClassName} -> ${newClassName}`);
-                console.log(`[UI] 状态图标背景色已设置为: ${statusColors[newStatus] || '未知'}`);
-                
-                // 验证类名是否成功应用
-                setTimeout(() => {
-                    console.log(`[UI] 验证状态图标类名: ${avatarStatusIconEl.className}`);
-                    console.log(`[UI] 验证状态属性: ${avatarStatusIconEl.getAttribute('data-status')}`);
-                    
-                    if (!avatarStatusIconEl.classList.contains(newStatus)) {
-                        console.warn(`[UI警告] 状态类名可能未正确应用，尝试强制设置`);
-                        // 再次尝试设置类名
-                        avatarStatusIconEl.className = newClassName;
-                        // 强制重绘
-                        avatarStatusIconEl.style.display = 'none';
-                        avatarStatusIconEl.offsetHeight; // 触发回流
-                        avatarStatusIconEl.style.display = '';
-                    }
-                }, 5);
-            } else {
-                console.error('[UI错误] 找不到状态图标元素');
             }
             
             console.log(`[UI] UI更新完成，用户状态: ${user.status}`);
         } catch (e) {
             console.error('[UI错误] UI更新过程中出错:', e);
         }
-    }, 10);
+    });
 }
 
 async function getAndRenderFriendList(qq) {
