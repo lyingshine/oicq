@@ -231,18 +231,26 @@ function createAddFriendWindow() {
 const handle = (channel, callback) => {
   ipcMain.handle(channel, async (event, ...args) => {
     try {
-      return await callback(event, ...args);
+      console.log(`处理IPC请求: ${channel}`, args);
+      const result = await callback(event, ...args);
+      console.log(`IPC请求完成: ${channel}`, { success: result?.success });
+      return result;
     } catch (error) {
-      console.error(`IPC Error on ${channel}:`, error);
+      console.error(`IPC错误 (${channel}):`, error);
+      // 确保返回一个标准格式的错误对象
       if (error.response) {
-        return { success: false, message: error.response.data.message || '服务器响应错误。' };
+        return { 
+            success: false, 
+            message: error.response.data?.message || error.response.statusText || '服务器响应错误',
+            statusCode: error.response.status 
+        };
       } else if (error.request) {
-        return { success: false, message: '无法连接到服务器。' };
-            } else {
-        return { success: false, message: error.message };
-                }
-            }
-        });
+        return { success: false, message: '无法连接到服务器' };
+      } else {
+        return { success: false, message: error.message || '发生未知错误' };
+      }
+    }
+  });
 };
 
 app.whenReady().then(() => {
@@ -432,42 +440,102 @@ handle('update-user-profile', async (event, qq, nickname, signature, avatar) => 
 
 // 状态更新处理
 handle('update-status', async (event, qq, status) => {
-    try {
-        console.log(`更新用户状态: QQ=${qq}, 状态=${status}`);
-        const response = await axios.post(`${API_URL}/status/update`, { qq, status });
-        
-        if (response.data.success) {
-            console.log('状态更新成功');
-            // 获取最新的用户信息并发送到渲染进程
-            const userResponse = await axios.get(`${API_URL}/users/${qq}`);
-            if (userResponse.data.success && userResponse.data.user) {
-                // 确保返回的用户对象包含status字段
-                const updatedUser = {
-                    ...userResponse.data.user,
-                    status: status // 确保状态字段正确设置
-                };
-                
-                console.log('发送更新后的用户信息到渲染进程:', updatedUser);
-                
-                // 确保mainWindow存在且未被销毁
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send('user-info', updatedUser);
-                } else {
-                    console.error('无法发送用户信息：主窗口不存在或已被销毁');
-                }
-                
-                return { success: true, status: status, user: updatedUser };
-            } else {
-                console.error('获取更新后的用户信息失败');
-                return { success: true, status: status };
-            }
-        } else {
-            throw new Error(response.data.message || '状态更新失败');
-        }
-    } catch (error) {
-        console.error('状态更新失败:', error);
-        throw error;
+    console.log(`开始处理状态更新请求: QQ=${qq}, 状态=${status}`);
+    
+    // 最多重试次数
+    const MAX_RETRIES = 2;
+    let retries = 0;
+    
+    // 特殊处理test-fail状态，直接抛出错误模拟失败
+    if (status === 'test-fail') {
+        console.log('主进程检测到测试失败状态，直接返回错误');
+        return { 
+            success: false, 
+            message: '主进程模拟的状态更新失败'
+        };
     }
+    
+    // 重试函数
+    const tryUpdateStatus = async () => {
+        try {
+            console.log(`尝试更新用户状态 (尝试 ${retries + 1}/${MAX_RETRIES + 1}): QQ=${qq}, 状态=${status}`);
+            const response = await axios.post(`${API_URL}/status/update`, { qq, status });
+            
+            if (response.data.success) {
+                console.log(`状态更新成功 (尝试 ${retries + 1})`);
+                
+                // 检查响应中是否包含用户信息
+                if (response.data.user) {
+                    console.log('服务器返回了更新后的用户信息');
+                    
+                    // 确保状态字段被正确设置
+                    const userData = {
+                        ...response.data.user,
+                        status: status // 确保状态字段正确
+                    };
+                    
+                    // 确保mainWindow存在且未被销毁
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        console.log('发送用户信息到渲染进程:', userData);
+                        mainWindow.webContents.send('user-info', userData);
+                    } else {
+                        console.error('无法发送用户信息：主窗口不存在或已被销毁');
+                    }
+                    
+                    return { success: true, status: status, user: userData };
+                } else {
+                    console.log('服务器未返回用户信息，尝试获取最新用户信息');
+                    // 获取最新的用户信息并发送到渲染进程
+                    const userResponse = await axios.get(`${API_URL}/users/${qq}`);
+                    if (userResponse.data.success && userResponse.data.user) {
+                        // 确保返回的用户对象包含status字段
+                        const updatedUser = {
+                            ...userResponse.data.user,
+                            status: status // 确保状态字段正确设置
+                        };
+                        
+                        console.log('发送更新后的用户信息到渲染进程:', updatedUser);
+                        
+                        // 确保mainWindow存在且未被销毁
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('user-info', updatedUser);
+                        } else {
+                            console.error('无法发送用户信息：主窗口不存在或已被销毁');
+                        }
+                        
+                        return { success: true, status: status, user: updatedUser };
+                    } else {
+                        console.error('获取更新后的用户信息失败');
+                        return { success: true, status: status };
+                    }
+                }
+            } else {
+                console.error('服务器返回状态更新失败:', response.data);
+                return { 
+                    success: false, 
+                    message: response.data.message || '状态更新失败',
+                    retried: retries > 0
+                };
+            }
+        } catch (error) {
+            console.error(`状态更新失败 (尝试 ${retries + 1}):`, error);
+            
+            if (retries < MAX_RETRIES) {
+                retries++;
+                console.log(`重试状态更新 (${retries}/${MAX_RETRIES})...`);
+                return await tryUpdateStatus();
+            }
+            
+            // 明确返回错误信息，而不是抛出错误
+            return { 
+                success: false, 
+                message: error.response?.data?.message || error.message || '状态更新失败',
+                retried: retries > 0
+            };
+        }
+    };
+    
+    return await tryUpdateStatus();
 });
 
 // 获取状态文本

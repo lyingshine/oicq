@@ -482,37 +482,62 @@ app.post('/api/update-profile/:qq', asyncHandler(async (req, res) => {
     }
 }));
 
-// 更新在线状态
+// 更新在线状态 (已过时，推荐使用 /api/status/update)
 app.post('/api/update-status/:qq', asyncHandler(async (req, res) => {
     const qq = req.params.qq;
     const { status } = req.body;
     
-        const db = await readDB();
-        const user = db.users[qq];
+    const db = await readDB();
+    const user = db.users[qq];
         
     if (user) {
         user.status = status;
         await writeDB(db);
-        res.json({ success: true, message: '状态已更新' });
-                        } else {
+        
+        // 返回完整的用户信息，确保UI可以准确更新
+        res.json({ 
+            success: true, 
+            message: '状态已更新',
+            user: {
+                qq: qq,
+                nickname: user.nickname,
+                signature: user.signature || '这个人很懒，什么都没留下',
+                avatar: user.avatar,
+                status: status
+            }
+        });
+    } else {
         res.status(404).json({ success: false, message: '用户不存在' });
     }
 }));
 
 // 更新用户状态
 app.post('/api/status/update', asyncHandler(async (req, res) => {
+    console.log(`---------- 收到状态更新请求 ----------`);
+    console.log(`请求体:`, req.body);
     const { qq, status } = req.body;
     
     if (!qq || !status) {
+        console.error(`状态更新失败: 缺少必要参数 - QQ=${qq}, 状态=${status}`);
         return res.status(400).json({ 
             success: false, 
             message: 'QQ号和状态都是必需的'
         });
     }
 
+    // 测试失败场景
+    if (status === 'test-fail') {
+        console.log(`收到测试失败状态请求: QQ=${qq}`);
+        return res.status(400).json({
+            success: false,
+            message: '测试状态更新失败场景'
+        });
+    }
+
     // 验证状态值
     const validStatuses = ['online', 'away', 'busy', 'invisible'];
     if (!validStatuses.includes(status)) {
+        console.error(`状态更新失败: 无效的状态值 - ${status}`);
         return res.status(400).json({ 
             success: false, 
             message: '无效的状态值'
@@ -520,26 +545,54 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
     }
     
     try {
+        console.log(`从数据库读取用户信息: QQ=${qq}`);
         const db = await readDB();
         
         if (!db.users[qq]) {
+            console.error(`状态更新失败: 用户不存在 - QQ=${qq}`);
             return res.status(404).json({ 
                 success: false, 
                 message: '用户不存在'
             });
         }
 
+        // 获取用户当前状态用于日志
+        const oldStatus = db.users[qq].status || 'unknown';
+        
         // 更新用户状态
+        console.log(`更新状态: QQ=${qq}, 旧状态=${oldStatus}, 新状态=${status}`);
         db.users[qq].status = status;
+        
+        // 写入数据库
+        console.log(`保存状态更新到数据库`);
         await writeDB(db);
 
-        console.log(`用户 ${qq} 状态更新为: ${status}`);
+        console.log(`用户 ${qq} 状态更新成功: ${oldStatus} -> ${status}`);
         
-        res.json({ 
+        // 返回完整的用户信息，确保UI可以准确更新
+        const user = db.users[qq];
+        console.log(`返回完整用户信息:`, {
+            qq,
+            nickname: user.nickname,
+            signature: user.signature ? (user.signature.length > 20 ? user.signature.substring(0, 20) + '...' : user.signature) : '(无签名)',
+            status
+        });
+        
+        const response = { 
             success: true, 
             message: '状态更新成功',
-            status: status
-        });
+            status: status,
+            user: {
+                qq: qq,
+                nickname: user.nickname,
+                signature: user.signature || '这个人很懒，什么都没留下',
+                avatar: user.avatar,
+                status: status
+            }
+        };
+        
+        res.json(response);
+        console.log(`---------- 状态更新请求处理完成 ----------`);
     } catch (error) {
         console.error('更新状态时出错:', error);
         res.status(500).json({ 
