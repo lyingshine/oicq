@@ -3,16 +3,30 @@
   "version": "1.0.0",
   "description": "IM项目全栈应用",
   "private": true,
+  "main": "client/main.js",
   "scripts": {
-    "start": "node start.js",
-    "start:server": "cd server && npm start",
-    "start:client": "cd client && npm start",
-    "install:all": "npm run install:server && npm run install:client",
-    "install:server": "cd server && npm install",
-    "install:client": "cd client && npm install",
-    "cleanup": "node cleanup.js"
+    "start": "concurrently \"npm:start:server\" \"npm:start:client\"",
+    "start:server": "nodemon server/index.js",
+    "start:client": "electron .",
+    "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "electron-store": "^8.2.0",
+    "express": "^4.19.2",
+    "iconv-lite": "^0.6.3",
+    "ws": "^8.17.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^31.7.7",
+    "electron-builder": "^25.0.0",
+    "electron-reloader": "^1.2.3",
+    "nodemon": "^3.1.4"
+  }
 }

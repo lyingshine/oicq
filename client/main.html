@@ -11,6 +11,9 @@
     <div class="title-bar">
         <span class="title">QQ2008</span>
         <div class="window-controls">
+            <button id="pin-btn" class="window-control" title="置顶窗口">
+                <i class="fas fa-thumbtack"></i>
+            </button>
             <button id="minimize-btn" class="window-control">-</button>
             <button id="maximize-btn" class="window-control">□</button>
             <button id="close-btn" class="window-control">×</button>
@@ -47,7 +50,6 @@
                 <div class="user-details">
                     <div class="user-line-1">
                             <span class="nickname" id="nickname">加载中...</span>
-                           <span class="status-text">[在线]</span>
                    </div>
                         <div class="user-signature" id="signature-text" title="点击修改个性签名">
                             这个人很懒，什么都没留下
@@ -67,7 +69,7 @@
                 <span>最近联系人</span>
             </div>
             
-            <div class="friend-list">
+            <div class="friend-list" id="friend-list">
                 <!-- Friend list will be generated here -->
             </div>
             
@@ -89,20 +91,17 @@
                     <span class="footer-icon" title="安全中心">
                         <i class="fas fa-shield-alt"></i>
                     </span>
-                    <span class="footer-icon" id="test-status-btn" title="测试状态更新">
-                        <i class="fas fa-vial"></i>
-                    </span>
                 </div>
             </div>
 
             <!-- Popups -->
-            <div class="main-menu-popup" id="main-menu-popup" style="display: none;">
+            <div class="main-menu-popup" id="main-menu-popup">
                 <ul>
+                    <li id="regenerate-avatars-btn">
+                        <i class="fas fa-sync-alt"></i> 重新生成头像
+                    </li>
                     <li id="switch-account-btn">
                         <i class="fas fa-exchange-alt"></i> 切换账号
-                    </li>
-                    <li id="test-sound-btn">
-                        <i class="fas fa-volume-up"></i> 测试声音
                     </li>
                     <li id="logout-btn">
                         <i class="fas fa-sign-out-alt"></i> 退出登录
@@ -128,10 +127,6 @@
                     <li data-status="invisible">
                         <i class="invisible"></i>
                         <span>隐身</span>
-                    </li>
-                    <li data-status="test-fail" style="border-top: 1px solid #eee;">
-                        <i style="background-color: #ff4444;"></i>
-                        <span>测试失败</span>
                     </li>
                 </ul>
             </div>

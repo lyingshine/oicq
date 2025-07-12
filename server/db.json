@@ -3,19 +3,19 @@
     "10001": {
       "nickname": "lyingshine",
       "password": "123",
+      "avatar": "data:image/svg+xml;base64,CiAgICAgICAgPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgICAgICAgICAgIDxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjYmJiNGEzIi8+CiAgICAgICAgICAgIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCIgZmlsbD0iI2ZmZiI+TDwvdGV4dD4KICAgICAgICA8L3N2Zz4KICAgIA==",
       "signature": "这个人很懒，什么都没留下",
       "status": "online",
       "friends": [
         "10002"
       ],
       "friendRequestsSent": [],
-      "friendRequestsReceived": [],
-      "avatar": "file:///C:/Users/Administrator/Desktop/oicq/assets/logo.png"
+      "friendRequestsReceived": []
     },
     "10002": {
       "nickname": "陈十一",
       "password": "123",
-      "avatar": "data:image/svg+xml;base64,CiAgICAgICAgPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgICAgICAgICAgIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjZjAyNTNiIi8+CiAgICAgICAgICAgIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCIgZmlsbD0iI2ZmZiI+6ZmIPC90ZXh0PgogICAgICAgIDwvc3ZnPgogICAg",
+      "avatar": "data:image/svg+xml;base64,CiAgICAgICAgPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgICAgICAgICAgIDxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjMWQ4ZDhmIi8+CiAgICAgICAgICAgIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCIgZmlsbD0iI2ZmZiI+6ZmIPC90ZXh0PgogICAgICAgIDwvc3ZnPgogICAg",
       "signature": "这个人很懒，什么都没留下",
       "status": "online",
       "friends": [
@@ -23,22 +23,85 @@
       ],
       "friendRequestsSent": [],
       "friendRequestsReceived": []
-    },
-    "10003": {
-      "nickname": "赵匡胤",
-      "password": "123",
-      "avatar": "data:image/svg+xml;base64,CiAgICAgICAgPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+CiAgICAgICAgICAgIDxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjUwIiBmaWxsPSIjNzYyZmQ2Ii8+CiAgICAgICAgICAgIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI1MCIgZmlsbD0iI2ZmZiI+6LW1PC90ZXh0PgogICAgICAgIDwvc3ZnPgogICAg",
-      "signature": "这个人很懒，什么都没留下",
-      "status": "online",
-      "friends": [],
-      "friendRequestsSent": [],
-      "friendRequestsReceived": []
     }
   },
-  "lastQQ": 10003,
+  "lastQQ": 10002,
   "nicknames": {
-    "lyingshine": "10001",
-    "陈十一": 10002,
-    "赵匡胤": 10003
+    "lyingshine": 10001,
+    "陈十一": 10002
+  },
+  "messages": {
+    "10001": {
+      "10002": [
+        {
+          "id": "1752327979141_9nxxnztnagm",
+          "sender": "10001",
+          "receiver": "10002",
+          "content": "？",
+          "timestamp": 1752327979141,
+          "read": false
+        },
+        {
+          "id": "1752328005785_qtxds35n9cf",
+          "sender": "10002",
+          "receiver": "10001",
+          "content": "？",
+          "timestamp": 1752328005785,
+          "read": true
+        },
+        {
+          "id": "1752328018198_oc9d7ij7v3",
+          "sender": "10001",
+          "receiver": "10002",
+          "content": "？",
+          "timestamp": 1752328018198,
+          "read": false
+        },
+        {
+          "id": "1752328035275_52ptkl09cp5",
+          "sender": "10002",
+          "receiver": "10001",
+          "content": "？",
+          "timestamp": 1752328035275,
+          "read": true
+        }
+      ]
+    },
+    "10002": {
+      "10001": [
+        {
+          "id": "1752327979141_9nxxnztnagm",
+          "sender": "10001",
+          "receiver": "10002",
+          "content": "？",
+          "timestamp": 1752327979141,
+          "read": true
+        },
+        {
+          "id": "1752328005785_qtxds35n9cf",
+          "sender": "10002",
+          "receiver": "10001",
+          "content": "？",
+          "timestamp": 1752328005785,
+          "read": false
+        },
+        {
+          "id": "1752328018198_oc9d7ij7v3",
+          "sender": "10001",
+          "receiver": "10002",
+          "content": "？",
+          "timestamp": 1752328018198,
+          "read": false
+        },
+        {
+          "id": "1752328035275_52ptkl09cp5",
+          "sender": "10002",
+          "receiver": "10001",
+          "content": "？",
+          "timestamp": 1752328035275,
+          "read": false
+        }
+      ]
+    }
   }
 }

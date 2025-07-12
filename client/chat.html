@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>聊天</title>
+    <link rel="stylesheet" href="vendor/fontawesome/all.min.css">
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/pages/chat.css">
+</head>
+<body>
+    <div class="title-bar">
+        <div class="friend-info">
+            <span class="friend-name" id="chat-friend-name">加载中...</span>
+            <span class="friend-status" id="chat-friend-status"></span>
+        </div>
+        <div class="window-controls">
+            <button id="pin-btn" class="window-control" title="置顶窗口"><i class="fas fa-thumbtack"></i></button>
+            <button id="minimize-btn" class="window-control">-</button>
+            <button id="close-btn" class="window-control">×</button>
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="chat-messages" id="chat-messages">
+            <!-- 消息将在这里显示 -->
+            <div class="chat-welcome">
+                <p>聊天开始了</p>
+                <p class="chat-time" id="chat-start-time"></p>
+            </div>
+        </div>
+        
+        <div class="chat-input-area">
+            <div class="chat-toolbar">
+                <button class="emoji-btn" title="表情"><i class="far fa-smile"></i></button>
+                <button class="file-btn" title="发送文件"><i class="far fa-file"></i></button>
+                <button class="image-btn" title="发送图片"><i class="far fa-image"></i></button>
+            </div>
+            <textarea class="chat-input" id="chat-input" placeholder="输入消息..."></textarea>
+            <button class="send-btn" id="send-btn">发送</button>
+        </div>
+    </div>
+
+    <script src="renderer/chat.js"></script>
+</body>
+</html> 

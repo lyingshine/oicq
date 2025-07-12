@@ -1,3 +1,6 @@
+let localFriends = [];
+let localRequests = [];
+
 document.addEventListener('DOMContentLoaded', () => {
     // 全局用户变量
     window.currentUser = null;
@@ -6,14 +9,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const minimizeBtn = document.getElementById('minimize-btn');
     const maximizeBtn = document.getElementById('maximize-btn');
     const closeBtn = document.getElementById('close-btn');
+    const pinBtn = document.getElementById('pin-btn');
     const mainMenuBtn = document.getElementById('main-menu-btn');
     const mainMenuPopup = document.getElementById('main-menu-popup');
     const switchAccountBtn = document.getElementById('switch-account-btn');
+    const regenerateAvatarsBtn = document.getElementById('regenerate-avatars-btn');
     const addFriendBtn = document.getElementById('add-friend-btn');
     const refreshFriendsBtn = document.getElementById('refresh-friends-btn');
     const avatarStatusIcon = document.getElementById('avatar-status-icon');
     const statusMenuPopup = document.getElementById('status-menu-popup');
-    const testStatusBtn = document.getElementById('test-status-btn');
 
     // 初始化用户信息显示
     initializeUserInfo();
@@ -22,16 +26,35 @@ document.addEventListener('DOMContentLoaded', () => {
     minimizeBtn.addEventListener('click', () => window.electronAPI.minimizeWindow());
     maximizeBtn.addEventListener('click', () => window.electronAPI.maximizeWindow());
     closeBtn.addEventListener('click', () => window.electronAPI.closeWindow());
+    
+    // 初始化置顶按钮状态
+    initPinButtonState();
+    
+    // 置顶按钮点击事件
+    pinBtn.addEventListener('click', () => {
+        window.electronAPI.toggleAlwaysOnTop();
+    });
+    
+    // 监听置顶状态变化
+    window.electronAPI.onAlwaysOnTopChanged((isAlwaysOnTop) => {
+        updatePinButtonState(isAlwaysOnTop);
+    });
 
     // 主菜单
     mainMenuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        mainMenuPopup.style.display = mainMenuPopup.style.display === 'block' ? 'none' : 'block';
+        mainMenuPopup.classList.toggle('show');
     });
 
     // 切换账号
     switchAccountBtn.addEventListener('click', async () => {
         await window.electronAPI.switchAccount();
+    });
+
+    // 重新生成头像
+    regenerateAvatarsBtn.addEventListener('click', async () => {
+        mainMenuPopup.classList.remove('show');
+        await regenerateAllAvatars();
     });
 
     // 添加好友
@@ -79,33 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 测试状态更新
-    if (testStatusBtn) {
-        console.log('添加测试状态按钮点击事件');
-        testStatusBtn.addEventListener('click', () => {
-            console.log('测试状态按钮被点击');
-            const statuses = ['online', 'away', 'busy', 'invisible'];
-            const currentStatus = window.currentUser?.status || 'online';
-            const currentIndex = statuses.indexOf(currentStatus);
-            const nextIndex = (currentIndex + 1) % statuses.length;
-            const nextStatus = statuses[nextIndex];
-            console.log(`测试状态更新: ${currentStatus} -> ${nextStatus}`);
-            updateStatus(nextStatus);
-        });
-    }
-
     // 点击其他地方关闭菜单
     document.addEventListener('click', (e) => {
         if (!mainMenuPopup.contains(e.target) && e.target.id !== 'main-menu-btn') {
-            // 使用平滑过渡效果隐藏菜单
             mainMenuPopup.classList.remove('show');
-            setTimeout(() => {
-                if (!mainMenuPopup.classList.contains('show')) {
-                    mainMenuPopup.style.display = 'none';
-                }
-            }, 200);
         }
         
+        const statusMenuPopup = document.getElementById('status-menu-popup');
         if (!statusMenuPopup.contains(e.target) && e.target.id !== 'avatar-status-icon') {
             // 使用平滑过渡效果隐藏菜单
             statusMenuPopup.classList.remove('show');
@@ -119,116 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 告知主进程页面已准备好接收数据
     window.electronAPI.mainPageReady();
-});
-
-// 添加一个全局函数，用于测试和诊断状态更新问题
-window.testStatusLogging = function() {
-    console.log('----------- 开始状态日志测试 -----------');
-    console.log(`[UI] 测试UI标签日志`);
-    console.log(`[网络] 测试网络标签日志`);
-    console.log(`[数据] 测试数据标签日志`);
-    console.log(`[成功] 测试成功标签日志`);
-    console.log(`[错误] 测试错误标签日志`);
-    console.log(`状态更新测试`);
-    console.log(`状态=online`);
-    console.log(`Status=busy`);
-    console.error(`[UI错误] 测试UI错误日志`);
-    console.error(`[网络错误] 测试网络错误日志`);
-    console.error(`[数据错误] 测试数据错误日志`);
-    console.error(`状态更新失败测试`);
-    console.log('----------- 结束状态日志测试 -----------');
-    
-    // 当前用户状态信息
-    if (window.currentUser) {
-        console.log(`当前用户状态信息: QQ=${window.currentUser.qq}, 状态=${window.currentUser.status}`);
-        
-        // 获取DOM状态
-        const statusIconEl = document.getElementById('avatar-status-icon');
-        console.log(`DOM状态图标信息:`, {
-            element: statusIconEl ? '存在' : '不存在',
-            className: statusIconEl ? statusIconEl.className : 'N/A',
-            dataStatus: statusIconEl ? statusIconEl.getAttribute('data-status') : 'N/A',
-            backgroundColor: statusIconEl ? statusIconEl.style.backgroundColor : 'N/A'
-        });
-        
-        // 比较数据和DOM状态是否一致
-        if (statusIconEl) {
-            const isConsistent = statusIconEl.classList.contains(window.currentUser.status);
-            console.log(`数据和DOM状态是否一致: ${isConsistent ? '是' : '否'}`);
-            
-            if (!isConsistent) {
-                console.log(`警告: 数据状态(${window.currentUser.status})与DOM状态不一致`);
-            }
-        }
-    } else {
-        console.log(`警告: 未找到当前用户信息`);
-    }
-    
-    return "状态日志测试完成，请查看控制台输出";
-};
-
-// 添加一个临时元素，用于显示状态诊断信息
-document.addEventListener('DOMContentLoaded', () => {
-    // 创建一个小按钮，点击后运行状态诊断
-    const diagnosticButton = document.createElement('button');
-    diagnosticButton.textContent = '状态诊断';
-    diagnosticButton.style.cssText = `
-        position: fixed;
-        bottom: 5px;
-        right: 5px;
-        background: rgba(0,0,0,0.5);
-        color: white;
-        border: none;
-        border-radius: 3px;
-        padding: 2px 5px;
-        font-size: 10px;
-        z-index: 9999;
-        opacity: 0.5;
-    `;
-    
-    diagnosticButton.addEventListener('click', () => {
-        window.testStatusLogging();
-        
-        // 显示诊断结果
-        const results = document.createElement('div');
-        results.style.cssText = `
-            position: fixed;
-            bottom: 30px;
-            right: 5px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            z-index: 9999;
-            max-width: 300px;
-        `;
-        
-        if (window.currentUser) {
-            const statusIconEl = document.getElementById('avatar-status-icon');
-            const isConsistent = statusIconEl && statusIconEl.classList.contains(window.currentUser.status);
-            
-            results.innerHTML = `
-                <strong>状态诊断:</strong><br>
-                数据状态: ${window.currentUser.status || 'unknown'}<br>
-                DOM状态: ${statusIconEl ? statusIconEl.className : 'element not found'}<br>
-                是否一致: ${isConsistent ? '✓' : '✗'}<br>
-                <br>
-                <small>查看控制台获取更多信息</small>
-            `;
-        } else {
-            results.innerHTML = '<strong>未找到用户数据</strong>';
-        }
-        
-        document.body.appendChild(results);
-        
-        // 3秒后移除
-        setTimeout(() => {
-            document.body.removeChild(results);
-        }, 3000);
-    });
-    
-    document.body.appendChild(diagnosticButton);
 });
 
 // 初始化用户信息
@@ -262,6 +155,12 @@ window.electronAPI.onUserInfo((user) => {
     const isStatusUpdate = previousUser && 
                          previousUser.qq === user.qq && 
                          previousUser.status !== user.status;
+
+    // 如果是从隐身切换到在线，播放提示音
+    if (isStatusUpdate && previousUser.status === 'invisible' && user.status === 'online') {
+        const audio = new Audio('../sound/上线提示音.mp3');
+        audio.play().catch(e => console.error('播放上线提示音失败:', e));
+    }
     
     if (isStatusUpdate) {
         console.log(`检测到状态更新: ${previousUser.status} -> ${user.status}`);
@@ -309,6 +208,108 @@ window.electronAPI.onFriendRequestCount((count) => {
     if (badge) {
         badge.textContent = count;
         badge.style.display = count > 0 ? 'block' : 'none';
+    }
+});
+
+// Listen for friend status updates
+window.electronAPI.onFriendStatusUpdate((payload) => {
+    console.log('收到好友状态更新:', payload);
+    const { qq, status } = payload;
+    
+    const friend = localFriends.find(f => f.qq === qq);
+    if (friend) {
+        console.log(`更新本地好友 ${qq} 的状态为 ${status}`);
+        friend.status = status;
+        
+        // 从更新后的本地缓存重新构建和渲染好友列表
+        const friendGroups = buildFriendGroups(localFriends, localRequests);
+        renderFriendList(friendGroups);
+    } else {
+        // 如果在本地缓存中找不到好友，可能是新加的好友，执行一次完整刷新
+        if (window.currentUser) {
+            getAndRenderFriendList(window.currentUser.qq);
+        }
+    }
+});
+
+window.electronAPI.onFriendOnline((payload) => {
+    console.log(`好友 ${payload.qq} 已上线，正在刷新列表...`);
+    if (window.currentUser) {
+        getAndRenderFriendList(window.currentUser.qq);
+    }
+});
+
+// 监听未读消息通知
+window.electronAPI.onUnreadMessages((unreadMessages) => {
+    console.log('收到未读消息通知:', unreadMessages);
+    
+    // 先移除所有闪烁效果
+    document.querySelectorAll('.avatar-flashing').forEach(element => {
+        element.classList.remove('avatar-flashing');
+    });
+    
+    // 遍历所有有未读消息的好友
+    for (const friendQq in unreadMessages) {
+        const count = unreadMessages[friendQq];
+        
+        // 找到对应的好友元素
+        const friendElement = document.querySelector(`.friend-item[data-qq="${friendQq}"]`);
+        if (friendElement) {
+            // 更新或创建未读消息指示器
+            let unreadBadge = friendElement.querySelector('.unread-badge');
+            if (!unreadBadge) {
+                unreadBadge = document.createElement('span');
+                unreadBadge.className = 'unread-badge';
+                friendElement.querySelector('.friend-info').appendChild(unreadBadge);
+            }
+            
+            // 设置未读消息数量
+            unreadBadge.textContent = count > 99 ? '99+' : count;
+            unreadBadge.style.display = 'block';
+            
+            // 添加头像闪烁效果
+            const avatar = friendElement.querySelector('.avatar');
+            if (avatar) {
+                avatar.classList.add('avatar-flashing');
+            }
+        }
+    }
+});
+
+// 监听收到新消息
+window.electronAPI.onMessageReceived((data) => {
+    const { senderQq } = data;
+    
+    // 播放消息提示音
+    window.electronAPI.playSound('MESSAGE');
+    
+    // 找到对应的好友元素
+    const friendElement = document.querySelector(`.friend-item[data-qq="${senderQq}"]`);
+    if (friendElement) {
+        // 更新或创建未读消息指示器
+        let unreadBadge = friendElement.querySelector('.unread-badge');
+        if (!unreadBadge) {
+            unreadBadge = document.createElement('span');
+            unreadBadge.className = 'unread-badge';
+            friendElement.querySelector('.friend-info').appendChild(unreadBadge);
+        }
+        
+        // 增加未读消息数量
+        const currentCount = parseInt(unreadBadge.textContent) || 0;
+        unreadBadge.textContent = currentCount + 1 > 99 ? '99+' : (currentCount + 1);
+        unreadBadge.style.display = 'block';
+        
+        // 添加头像闪烁效果
+        const avatar = friendElement.querySelector('.avatar');
+        if (avatar) {
+            avatar.classList.add('avatar-flashing');
+        }
+        
+        // 将该好友移动到列表顶部
+        const friendsList = document.getElementById('friends-list');
+        if (friendsList && friendsList.firstChild !== friendElement) {
+            friendsList.insertBefore(friendElement, friendsList.firstChild);
+        }
     }
 });
 
@@ -546,133 +547,69 @@ function showNotification(message, type = 'info') {
 
 // 获取状态文本
 function getStatusText(status) {
+    // Define the mapping from status to display text
     const statusMap = {
         'online': '在线',
         'away': '离开',
         'busy': '忙碌',
-        'invisible': '隐身'
+        'invisible': '隐身', // Invisible shows as offline to others
+        'offline': '隐身'
     };
-    return statusMap[status] || '在线';
+    return statusMap[status] || '隐身'; // Default to offline for friends
 }
 
 // 更新用户信息到UI
 function applyUserInfoToUI(user) {
-    if (!user) {
-        console.error('[UI错误] 无法更新UI: 用户对象为空');
-        return;
+    if (!user) return;
+
+    // 更新全局变量
+    window.currentUser = user;
+
+    const elements = {
+        avatar: document.getElementById('main-avatar-img'),
+        nickname: document.getElementById('nickname'),
+        signature: document.getElementById('signature-text'),
+        statusIcon: document.getElementById('avatar-status-icon')
+    };
+
+    if (elements.avatar) {
+        elements.avatar.src = user.avatar || 'assets/logo.png';
+        // 添加点击事件监听器以显示资料卡
+        elements.avatar.addEventListener('click', showProfileCard);
+    }
+    if (elements.nickname) elements.nickname.textContent = user.nickname || '未设置昵称';
+    if (elements.signature) elements.signature.textContent = user.signature || '编辑个性签名';
+    if (elements.statusIcon) {
+        elements.statusIcon.className = `status-icon ${user.status || 'online'}`;
+        elements.statusIcon.setAttribute('data-status', user.status || 'online');
     }
     
-    console.log(`[UI] 开始更新UI: 用户=${user.qq}, 状态=${user.status}`);
-    
-    // 批量更新DOM，减少重绘次数
-    // 使用requestAnimationFrame确保在下一次绘制帧之前完成所有DOM更新
-    window.requestAnimationFrame(() => {
-        try {
-            // 更新昵称
-            const nicknameEl = document.getElementById('nickname');
-            if (nicknameEl && nicknameEl.textContent !== user.nickname) {
-                nicknameEl.textContent = user.nickname || `用户${user.qq}`;
-                console.log(`[UI] 昵称已更新: ${nicknameEl.textContent}`);
-            }
-
-            // 更新个性签名
-            const signatureEl = document.getElementById('signature-text');
-            if (signatureEl) {
-                const newSignature = user.signature || '这个人很懒，什么都没留下';
-                if (signatureEl.textContent !== newSignature) {
-                    signatureEl.textContent = newSignature;
-                    console.log(`[UI] 签名已更新: ${signatureEl.textContent.substring(0, 20)}${signatureEl.textContent.length > 20 ? '...' : ''}`);
-                }
-            }
-
-            // 更新头像
-            const avatarEl = document.getElementById('main-avatar-img');
-            if (avatarEl && avatarEl.src !== user.avatar) {
-                if (user.avatar) {
-                    // 预加载图片，加载完成后再更换src，防止闪烁
-                    const tempImg = new Image();
-                    tempImg.onload = () => {
-                        avatarEl.src = user.avatar;
-                    };
-                    tempImg.onerror = () => {
-                        console.warn('[UI警告] 头像加载失败，使用默认头像');
-                        avatarEl.src = 'assets/logo.png';
-                    };
-                    tempImg.src = user.avatar;
-                } else {
-                    avatarEl.src = 'assets/logo.png';
-                }
-            }
-
-            // 更新在线状态 - 文本
-            const statusTextEl = document.querySelector('.status-text');
-            if (statusTextEl) {
-                const statusText = `[${getStatusText(user.status || 'online')}]`;
-                if (statusTextEl.textContent !== statusText) {
-                    statusTextEl.textContent = statusText;
-                }
-            }
-
-            // 更新头像上的状态指示器 - 使用CSS类控制，避免直接操作style
-            const avatarStatusIconEl = document.getElementById('avatar-status-icon');
-            if (avatarStatusIconEl) {
-                const newStatus = user.status || 'online';
-                
-                // 如果状态没有变化，不做任何操作
-                if (avatarStatusIconEl.classList.contains(newStatus)) {
-                    return;
-                }
-                
-                // 移除所有状态类
-                avatarStatusIconEl.classList.remove('online', 'away', 'busy', 'invisible', 'test-fail');
-                
-                // 添加新状态类
-                avatarStatusIconEl.classList.add(newStatus);
-                avatarStatusIconEl.setAttribute('data-status', newStatus);
-                
-                // 状态色彩映射
-                const statusColors = {
-                    'online': '#44b549',
-                    'away': '#ffc107',
-                    'busy': '#f44336',
-                    'invisible': '#9e9e9e',
-                    'test-fail': '#ff4444'
-                };
-                
-                // 记录原始背景色
-                const originalColor = avatarStatusIconEl.style.backgroundColor;
-                
-                // 如果有对应的颜色，并且与当前不同，才设置新颜色
-                if (statusColors[newStatus] && originalColor !== statusColors[newStatus]) {
-                    avatarStatusIconEl.style.backgroundColor = statusColors[newStatus];
-                }
-            }
-            
-            console.log(`[UI] UI更新完成，用户状态: ${user.status}`);
-        } catch (e) {
-            console.error('[UI错误] UI更新过程中出错:', e);
-        }
-    });
+    // 将用户信息保存到本地存储，以便在重新加载时恢复
+    try {
+        localStorage.setItem('currentUser', JSON.stringify(user));
+    } catch (error) {
+        console.error('保存用户信息失败:', error);
+    }
 }
 
 async function getAndRenderFriendList(qq) {
     try {
-        console.log('开始获取好友列表, QQ:', qq);
+        console.log('[RENDERER] 开始获取好友列表, QQ:', qq);
         const response = await window.electronAPI.getFriends(qq);
-        console.log('获取好友列表响应:', response);
+        console.log('[RENDERER] 从主进程获取好友列表响应:', JSON.stringify(response, null, 2));
 
-        if (!response) {
-            throw new Error('获取好友列表失败：没有响应');
-        }
-
-        if (!response.success) {
+        if (!response || !response.success) {
             throw new Error(response.message || '获取好友列表失败');
         }
 
-        const friendGroups = buildFriendGroups(response.friends, response.requests);
+        // 更新本地缓存
+        localFriends = response.friends || [];
+        localRequests = response.requests || [];
+
+        const friendGroups = buildFriendGroups(localFriends, localRequests);
         renderFriendList(friendGroups);
     } catch (error) {
-        console.error('获取好友列表失败:', error);
+        console.error('[RENDERER] 获取或渲染好友列表失败:', error);
         const friendListEl = document.querySelector('.friend-list');
         if (friendListEl) {
             friendListEl.innerHTML = `
@@ -687,7 +624,7 @@ async function getAndRenderFriendList(qq) {
 }
 
 function buildFriendGroups(friends = [], requests = []) {
-    console.log('构建好友分组, 好友数:', friends.length, '请求数:', requests.length);
+    console.log('[RENDERER] 构建好友分组, 好友数:', friends.length, '请求数:', requests.length);
     
     // 默认分组
     const groups = [
@@ -719,96 +656,167 @@ function buildFriendGroups(friends = [], requests = []) {
         });
     }
 
+    // Sort friends within each group: online first
+    groups.forEach(group => {
+        if (group.friends && group.id !== -1) { // Don't sort requests group
+            group.friends.sort((a, b) => {
+                const aIsOnline = a.status === 'online';
+                const bIsOnline = b.status === 'online';
+                if (aIsOnline && !bIsOnline) return -1;
+                if (!aIsOnline && bIsOnline) return 1;
+                return (a.nickname || '').localeCompare(b.nickname || ''); // Then sort by name
+            });
+        }
+    });
+
     // 只返回有好友的分组
-    return groups.filter(g => g.friends.length > 0);
+    const finalGroups = groups.filter(g => g.friends.length > 0);
+    console.log('[RENDERER] 最终分组结果:', JSON.stringify(finalGroups, null, 2));
+    return finalGroups;
 }
 
 function renderFriendList(groups) {
-    console.log('渲染好友列表, 分组数:', groups.length);
-    
-    const friendListEl = document.querySelector('.friend-list');
-    if (!friendListEl) {
-        console.error('找不到好友列表容器元素');
+    const friendListContainer = document.querySelector('.friend-list');
+    if (!friendListContainer) {
+        console.error('[RENDERER] 好友列表容器未找到');
         return;
     }
-
-    friendListEl.innerHTML = '';
+    friendListContainer.innerHTML = '';
+    console.log('[RENDERER] 开始渲染好友列表, 分组数:', groups.length);
 
     if (groups.length === 0) {
-        friendListEl.innerHTML = `
-            <div class="empty-message" style="padding: 20px; text-align: center; color: #666;">
-                <i class="fas fa-user-friends" style="font-size: 24px; margin-bottom: 10px;"></i>
-                <div>暂无好友</div>
-            </div>
-        `;
+        friendListContainer.innerHTML = '<div class="no-friends-message" style="padding: 20px; text-align: center; color: #888;">你还没有好友，快去添加吧！</div>';
+        console.log('[RENDERER] 没有好友可以渲染');
         return;
     }
 
-    groups.forEach(group => {
-        const onlineCount = group.friends.filter(f => !f.isRequest && f.status === 'online').length;
-        const totalCount = group.friends.filter(f => !f.isRequest).length;
+    let totalFriendsRendered = 0;
 
-        const groupEl = document.createElement('div');
-        groupEl.className = 'friend-group';
+    for (const group of groups) {
+        const groupElement = document.createElement('div');
+        groupElement.className = 'friend-group';
         
-        // 分组头部
-        const headerHtml = `
-            <div class="friend-group-header" style="display: flex; align-items: center; padding: 8px; cursor: pointer; background: #f5f5f5; border-bottom: 1px solid #eee;">
-                <i class="fas fa-chevron-${group.open ? 'down' : 'right'}" style="margin-right: 5px;"></i>
-                <span style="flex: 1;">${group.name}</span>
-                ${!group.isRequest ? `<span class="friend-count" style="color: #666; font-size: 12px;">${onlineCount}/${totalCount}</span>` : ''}
+        const onlineCount = group.friends.filter(f => f.status === 'online' && !f.isRequest).length;
+        const totalCount = group.isRequest ? group.friends.length : group.friends.filter(f => !f.isRequest).length;
+
+        groupElement.innerHTML = `
+            <div class="group-title">
+                <i class="fas fa-chevron-right"></i>
+                <span>${group.name}</span>
+                <span class="online-count">${onlineCount}/${totalCount}</span>
             </div>
         `;
+        
+        const listElement = document.createElement('ul');
+        listElement.className = 'friend-sublist';
+        listElement.style.display = group.open ? 'block' : 'none';
 
-        // 好友列表内容
-        const contentHtml = `
-            <div class="friend-group-content" style="display: ${group.open ? 'block' : 'none'};">
-                ${group.friends.map(friend => `
-                    <div class="friend-item" style="display: flex; padding: 8px; align-items: center; border-bottom: 1px solid #eee; ${!friend.isRequest && friend.status !== 'online' ? 'opacity: 0.6;' : ''}">
-                        <img src="${friend.avatar || 'assets/logo.png'}" alt="头像" 
-                             style="width: 40px; height: 40px; border-radius: 3px; margin-right: 10px;"
-                             onerror="this.src='assets/logo.png'">
-                        <div style="flex: 1; min-width: 0;">
-                            <div class="friend-name" style="font-size: 14px; margin-bottom: 2px;">${friend.nickname}</div>
-                            <div class="friend-signature" style="font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                ${friend.signature || '这个人很懒，什么都没留下'}
-                            </div>
-                        </div>
-                        ${friend.isRequest ? `
-                            <div class="friend-request-actions" style="display: flex; gap: 5px;">
-                                <button onclick="acceptRequest('${friend.qq}')" 
-                                        style="padding: 4px 8px; background: #44b549; color: white; border: none; border-radius: 3px; cursor: pointer;">
-                                    接受
-                                </button>
-                                <button onclick="rejectRequest('${friend.qq}')"
-                                        style="padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">
-                                    拒绝
-                                </button>
-                            </div>
-                        ` : ''}
+        group.friends.forEach(friend => {
+            totalFriendsRendered++;
+            const isSelf = window.currentUser && friend.qq === window.currentUser.qq;
+            
+            // 根据好友状态确定类名
+            let statusClass = '';
+            let statusText = '';
+            
+            switch (friend.status) {
+                case 'online':
+                    statusClass = 'online';
+                    statusText = '在线';
+                    break;
+                case 'away':
+                    statusClass = 'away';
+                    statusText = '离开';
+                    break;
+                case 'busy':
+                    statusClass = 'busy';
+                    statusText = '忙碌';
+                    break;
+                case 'invisible':
+                    statusClass = 'invisible';
+                    statusText = '隐身';
+                    break;
+                default:
+                    statusClass = 'offline';
+                    statusText = '离线';
+            }
+            
+            // 如果是自己，强制显示为在线
+            if (isSelf) {
+                statusClass = 'online';
+                statusText = '在线';
+            }
+
+            const friendElement = document.createElement('li');
+            friendElement.className = `friend-item ${statusClass}`;
+            friendElement.dataset.qq = friend.qq;
+
+            if (friend.isRequest) {
+                friendElement.innerHTML = `
+                    <div class="friend-avatar">
+                        <img src="${friend.avatar || '../assets/logo.png'}" alt="avatar">
                     </div>
-                `).join('')}
-            </div>
-        `;
+                    <div class="friend-info">
+                        <div class="friend-name">${friend.nickname}</div>
+                    </div>
+                    <div class="request-actions">
+                        <button class="accept-btn">接受</button>
+                        <button class="reject-btn">拒绝</button>
+                    </div>
+                `;
+                friendElement.querySelector('.accept-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    acceptRequest(friend.qq);
+                });
+                friendElement.querySelector('.reject-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    rejectRequest(friend.qq);
+                });
+            } else {
+                friendElement.innerHTML = `
+                    <div class="friend-avatar ${statusClass}">
+                        <img src="${friend.avatar || '../assets/logo.png'}" alt="avatar">
+                        <div class="status-icon-small ${statusClass}"></div>
+                    </div>
+                    <div class="friend-info">
+                        <div class="friend-name-row">
+                            <div class="friend-name">${friend.nickname}</div>
+                            <div class="friend-status">${statusText}</div>
+                        </div>
+                        <div class="friend-signature">${friend.signature || ''}</div>
+                    </div>
+                `;
+                
+                // 添加头像单击事件 - 查看好友资料
+                const avatarElement = friendElement.querySelector('.friend-avatar');
+                if (avatarElement) {
+                    avatarElement.addEventListener('click', (e) => {
+                        e.stopPropagation(); // 阻止事件冒泡
+                        showFriendProfile(friend);
+                    });
+                }
+                
+                // 添加好友项双击事件 - 打开聊天框
+                friendElement.addEventListener('dblclick', () => {
+                    openChatWindow(friend);
+                });
+            }
 
-        groupEl.innerHTML = headerHtml + contentHtml;
-
-        // 添加分组展开/折叠事件
-        const header = groupEl.querySelector('.friend-group-header');
-        const content = groupEl.querySelector('.friend-group-content');
-        const arrow = groupEl.querySelector('.fa-chevron-right, .fa-chevron-down');
-        
-        header.addEventListener('click', () => {
-            const isOpen = content.style.display === 'block';
-            content.style.display = isOpen ? 'none' : 'block';
-            arrow.className = `fas fa-chevron-${isOpen ? 'right' : 'down'}`;
+            listElement.appendChild(friendElement);
         });
 
-        friendListEl.appendChild(groupEl);
-    });
+        groupElement.appendChild(listElement);
+        friendListContainer.appendChild(groupElement);
+
+        groupElement.querySelector('.group-title').addEventListener('click', () => {
+            listElement.style.display = listElement.style.display === 'none' ? 'block' : 'none';
+            groupElement.querySelector('.fa-chevron-right').classList.toggle('rotated');
+        });
+    }
+    console.log(`[RENDERER] 渲染完成, 共渲染了 ${totalFriendsRendered} 个好友/请求`);
 }
 
-// 处理好友请求
+// 接受好友请求
 async function acceptRequest(requesterQq) {
     if (!window.currentUser) return;
     
@@ -841,32 +849,261 @@ async function rejectRequest(requesterQq) {
     }
 }
 
+// 显示个人资料卡
 function showProfileCard() {
-    const user = window.currentUser;
-    if (!user) {
-        alert('用户信息尚未加载');
-        return;
-    }
-    document.getElementById('nickname-input').value = user.nickname;
-    document.getElementById('signature-input').value = user.signature;
-    document.getElementById('profile-card').style.display = 'block';
+    const card = document.createElement('div');
+    card.id = 'profile-card';
+    card.className = 'profile-card';
+    card.innerHTML = `
+        <div class="profile-card-header">
+            <h4>编辑资料</h4>
+            <button id="close-profile-card" class="close-btn">&times;</button>
+        </div>
+        <div class="profile-card-body">
+            <div class="profile-avatar-wrapper">
+                <img src="${window.currentUser.avatar || 'assets/logo.png'}" id="profile-card-avatar" class="profile-card-avatar" alt="Avatar">
+                <div class="profile-avatar-overlay">点击更换</div>
+            </div>
+            <div class="avatar-options">
+                <button id="upload-avatar-btn" class="avatar-option-btn">上传头像</button>
+                <button id="generate-avatar-btn" class="avatar-option-btn">生成头像</button>
+            </div>
+            <p>QQ: ${window.currentUser.qq}</p>
+            <input type="text" id="profile-nickname" value="${window.currentUser.nickname || ''}" placeholder="昵称">
+            <input type="text" id="profile-signature" value="${window.currentUser.signature || ''}" placeholder="个性签名">
+        </div>
+        <div class="profile-card-footer">
+            <button id="save-profile-changes" class="save-btn">保存</button>
+        </div>
+    `;
+    document.body.appendChild(card);
+
+    // 事件监听
+    document.getElementById('close-profile-card').addEventListener('click', () => card.remove());
+    document.getElementById('save-profile-changes').addEventListener('click', handleProfileSave);
+    
+    // 为上传头像按钮添加点击事件
+    document.getElementById('upload-avatar-btn').addEventListener('click', async () => {
+        // 直接获取Base64格式的图片数据
+        const avatarBase64 = await window.electronAPI.openFileDialog();
+        if (avatarBase64) {
+            console.log('获取到头像Base64数据，长度:', avatarBase64.length);
+            
+            // 更新头像预览
+            const profileAvatar = document.getElementById('profile-card-avatar');
+            profileAvatar.src = avatarBase64;
+            
+            // 直接更新头像，不需要等待保存按钮
+            await updateUserAvatar(avatarBase64);
+        } else {
+            console.log('用户取消了头像选择或处理失败');
+        }
+    });
+    
+    // 为生成头像按钮添加点击事件
+    document.getElementById('generate-avatar-btn').addEventListener('click', async () => {
+        const nickname = document.getElementById('profile-nickname').value || window.currentUser.nickname;
+        const firstChar = nickname.charAt(0).toUpperCase();
+        const bgColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        
+        // 创建SVG头像
+        const svg = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+                <rect x="0" y="0" width="100" height="100" fill="${bgColor}"/>
+                <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="50" fill="#fff">${firstChar}</text>
+            </svg>
+        `;
+        
+        // 将SVG转换为Base64
+        const base64Avatar = `data:image/svg+xml;base64,${btoa(svg)}`;
+        
+        // 更新头像预览
+        const profileAvatar = document.getElementById('profile-card-avatar');
+        profileAvatar.src = base64Avatar;
+        
+        // 直接更新头像
+        await updateUserAvatar(base64Avatar);
+    });
 }
 
+// 处理资料保存
 async function handleProfileSave() {
-    const user = window.currentUser;
-    if (!user) return;
+    const nickname = document.getElementById('profile-nickname').value;
+    const signature = document.getElementById('profile-signature').value;
+    
+    // 只更新昵称和签名
+    const result = await window.electronAPI.updateUserProfile(
+        window.currentUser.qq,
+        nickname,
+        signature,
+        null // 不通过这个API更新头像
+    );
 
-    const nickname = document.getElementById('nickname-input').value;
-    const signature = document.getElementById('signature-input').value;
-    
-    const result = await window.electronAPI.updateUserProfile(user.qq, nickname, signature, user.avatar);
-    
     if (result.success) {
-        window.currentUser = result.data.user;
-        localStorage.setItem('currentUser', JSON.stringify(window.currentUser));
-        applyUserInfoToUI(window.currentUser);
-        document.getElementById('profile-card').style.display = 'none';
+        // 更新UI
+        applyUserInfoToUI(result.data.user);
+        // 关闭资料卡
+        document.getElementById('profile-card').remove();
+        showNotification('资料更新成功', 'success');
     } else {
-        alert('更新失败: ' + result.error);
+        showNotification(`更新失败: ${result.message}`, 'error');
+    }
+}
+
+// 更新用户头像
+async function updateUserAvatar(avatarBase64) {
+    if (!window.currentUser || !avatarBase64) {
+        console.error('无法更新头像: 用户未登录或头像数据为空');
+        return false;
+    }
+    
+    try {
+        console.log('发送头像更新请求, 数据长度:', avatarBase64.length);
+        const result = await window.electronAPI.updateAvatar(window.currentUser.qq, avatarBase64);
+        console.log('头像更新服务器响应:', result);
+        
+        if (result.success) {
+            // 更新本地用户信息
+            window.currentUser.avatar = avatarBase64;
+            
+            // 更新UI
+            const avatarImg = document.getElementById('main-avatar-img');
+            if (avatarImg) {
+                avatarImg.src = avatarBase64;
+                console.log('头像UI已更新');
+            }
+            
+            // 刷新好友列表，确保显示最新的头像
+            if (window.currentUser) {
+                console.log('刷新好友列表');
+                getAndRenderFriendList(window.currentUser.qq);
+            }
+            
+            showNotification('头像更新成功', 'success');
+            return true;
+        } else {
+            console.error('头像更新失败:', result.message);
+            showNotification(`头像更新失败: ${result.message}`, 'error');
+            return false;
+        }
+    } catch (error) {
+        console.error('头像更新异常:', error);
+        showNotification('头像更新失败，请稍后再试', 'error');
+        return false;
+    }
+}
+
+// 重新生成所有用户头像
+async function regenerateAllAvatars() {
+    try {
+        const result = await window.electronAPI.regenerateAllAvatars();
+        if (result.success) {
+            showNotification('所有用户头像已重新生成', 'success');
+            // 如果当前用户已登录，刷新好友列表
+            if (window.currentUser) {
+                getAndRenderFriendList(window.currentUser.qq);
+            }
+        } else {
+            showNotification('重新生成头像失败: ' + result.message, 'error');
+        }
+    } catch (error) {
+        console.error('重新生成头像失败:', error);
+        showNotification('重新生成头像失败，请稍后再试', 'error');
+    }
+} 
+
+// 初始化置顶按钮状态
+async function initPinButtonState() {
+    try {
+        const isAlwaysOnTop = await window.electronAPI.getAlwaysOnTopState();
+        updatePinButtonState(isAlwaysOnTop);
+    } catch (error) {
+        console.error('获取置顶状态失败:', error);
+    }
+}
+
+// 更新置顶按钮状态
+function updatePinButtonState(isAlwaysOnTop) {
+    const pinBtn = document.getElementById('pin-btn');
+    if (pinBtn) {
+        if (isAlwaysOnTop) {
+            pinBtn.classList.add('active');
+            pinBtn.title = '取消置顶';
+        } else {
+            pinBtn.classList.remove('active');
+            pinBtn.title = '置顶窗口';
+        }
+    }
+} 
+
+// 显示好友资料卡
+function showFriendProfile(friend) {
+    // 如果已经存在资料卡，先移除
+    const existingCard = document.getElementById('friend-profile-card');
+    if (existingCard) {
+        existingCard.remove();
+    }
+
+    const card = document.createElement('div');
+    card.id = 'friend-profile-card';
+    card.className = 'profile-card';
+    card.innerHTML = `
+        <div class="profile-card-header">
+            <h4>好友资料</h4>
+            <button id="close-friend-profile" class="close-btn">&times;</button>
+        </div>
+        <div class="profile-card-body">
+            <div class="profile-avatar-wrapper">
+                <img src="${friend.avatar || '../assets/logo.png'}" class="profile-card-avatar" alt="Avatar">
+            </div>
+            <p><strong>QQ:</strong> ${friend.qq}</p>
+            <p><strong>昵称:</strong> ${friend.nickname}</p>
+            <p><strong>状态:</strong> <span class="friend-status ${friend.status}">${getStatusText(friend.status)}</span></p>
+            <p><strong>个性签名:</strong> ${friend.signature || '这个人很懒，什么都没留下'}</p>
+        </div>
+        <div class="profile-card-footer">
+            <button id="chat-with-friend" class="chat-btn">发送消息</button>
+            <button id="delete-friend" class="delete-btn">删除好友</button>
+        </div>
+    `;
+    document.body.appendChild(card);
+
+    // 事件监听
+    document.getElementById('close-friend-profile').addEventListener('click', () => card.remove());
+    
+    // 发送消息按钮
+    document.getElementById('chat-with-friend').addEventListener('click', () => {
+        card.remove();
+        openChatWindow(friend);
+    });
+    
+    // 删除好友按钮
+    document.getElementById('delete-friend').addEventListener('click', async () => {
+        if (confirm(`确定要删除好友 ${friend.nickname} 吗？`)) {
+            try {
+                // 这里需要实现删除好友的API
+                showNotification('删除好友功能尚未实现', 'info');
+                card.remove();
+            } catch (error) {
+                console.error('删除好友失败:', error);
+                showNotification('删除好友失败', 'error');
+            }
+        }
+    });
+}
+
+// 打开聊天窗口
+function openChatWindow(friend) {
+    if (!friend || !friend.qq) {
+        console.error('无法打开聊天窗口：好友信息不完整');
+        return;
+    }
+    
+    try {
+        // 调用API打开独立聊天窗口
+        window.electronAPI.openChatWindow(friend.qq);
+    } catch (error) {
+        console.error('打开聊天窗口失败:', error);
+        showNotification('打开聊天窗口失败', 'error');
     }
 } 

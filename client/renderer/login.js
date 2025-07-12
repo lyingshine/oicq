@@ -33,11 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('hasAutoLogin');
     });
 
-    window.electronAPI.onLoginFailed((message) => {
-        errorMessageDiv.textContent = message;
-        errorMessageDiv.style.display = 'block';
-    });
-
     document.getElementById('open-register-link').addEventListener('click', (event) => {
         event.preventDefault();
         window.electronAPI.openRegisterWindow();
@@ -69,6 +64,15 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.removeItem('rememberedUser');
         }
 
-        window.electronAPI.login(username, password);
+        try {
+            const result = await window.electronAPI.login(username, password);
+            if (!result.success) {
+                errorMessageDiv.textContent = result.message;
+                errorMessageDiv.style.display = 'block';
+            }
+        } catch (error) {
+            errorMessageDiv.textContent = `登录失败: ${error.message}`;
+            errorMessageDiv.style.display = 'block';
+        }
     });
 }); 

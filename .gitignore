@@ -1,6 +1,11 @@
-# 根目录下的临时文件
-/node_modules/
+# Dependencies
+/node_modules
 /node_modules_old/
+
+# Electron user data
+/client/userData/
+
+# 根目录下的临时文件
 .DS_Store
 Thumbs.db
 
@@ -11,6 +16,4 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-*.swo
-
-# 每个子目录都有自己的.gitignore配置 
+*.swo 

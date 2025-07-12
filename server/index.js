@@ -3,6 +3,8 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const fs = require('fs').promises;
 const path = require('path');
+const { WebSocketServer } = require('ws');
+const axios = require('axios'); // Added axios for API calls
 
 // 添加 iconv-lite 依赖
 const iconv = require('iconv-lite');
@@ -12,56 +14,13 @@ const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 
 console.log = function(...args) {
-  // 只允许输出包含状态切换相关关键词的日志
-  const logString = args.join(' ').toLowerCase();
-  
-  // 是否应该显示此日志
-  const shouldLog = (
-    // 新的日志格式，带有分隔线和标签的日志
-    logString.includes('----------') ||
-    logString.includes('状态更新请求') ||
-    logString.includes('请求体') ||
-    logString.includes('从数据库读取') ||
-    logString.includes('更新状态:') ||
-    logString.includes('状态更新成功') ||
-    logString.includes('返回完整用户信息') ||
-    
-    // 原有的状态相关关键词
-    logString.includes('状态更新') || 
-    logString.includes('状态=') || 
-    logString.includes('status=') || 
-    logString.includes('状态：') ||
-    logString.includes('status：')
-  );
-  
-  // 如果应该显示，则调用原始的console.log
-  if (shouldLog) {
-    originalConsoleLog.apply(console, args);
-  }
+  // 禁用所有控制台输出
+  return;
 };
 
 console.error = function(...args) {
-  // 保留所有状态更新相关的错误
-  const logString = args.join(' ').toLowerCase();
-  
-  // 是否应该显示此错误
-  const shouldLog = (
-    // 特定的错误类型
-    logString.includes('状态更新失败') ||
-    logString.includes('无效的状态值') ||
-    logString.includes('用户不存在') ||
-    logString.includes('更新状态时出错') ||
-    
-    // 原有的状态相关关键词
-    logString.includes('状态更新') || 
-    logString.includes('状态=') || 
-    logString.includes('status')
-  );
-  
-  // 如果应该显示，则调用原始的console.error
-  if (shouldLog) {
-    originalConsoleError.apply(console, args);
-  }
+  // 禁用所有控制台输出
+  return;
 };
 
 const app = express();
@@ -80,36 +39,28 @@ function wrapConsoleOutput() {
     const originalStdoutWrite = process.stdout.write.bind(process.stdout);
     const originalStderrWrite = process.stderr.write.bind(process.stderr);
 
+    // 禁用所有标准输出
     process.stdout.write = function(chunk, encoding, callback) {
-        if (typeof chunk === 'string') {
-            chunk = iconv.encode(iconv.decode(Buffer.from(chunk, 'utf8'), 'utf8'), 'gbk');
-        }
-        return originalStdoutWrite.call(this, chunk, encoding, callback);
+        // 不输出任何内容
+        if (callback) callback();
+        return true;
     };
 
+    // 禁用所有错误输出
     process.stderr.write = function(chunk, encoding, callback) {
-        if (typeof chunk === 'string') {
-            chunk = iconv.encode(iconv.decode(Buffer.from(chunk, 'utf8'), 'utf8'), 'gbk');
-        }
-        return originalStderrWrite.call(this, chunk, encoding, callback);
+        // 不输出任何内容
+        if (callback) callback();
+        return true;
     };
 
-    // 重写 console.log 和 console.error
-    const originalConsoleLog = console.log;
-    const originalConsoleError = console.error;
-
-    console.log = function(...args) {
-        const output = args.map(arg => 
-            typeof arg === 'string' ? arg : JSON.stringify(arg)
-        ).join(' ');
-        originalStdoutWrite.call(process.stdout, output + '\n');
+    // 禁用 console.log
+    console.log = function() {
+        return;
     };
 
-    console.error = function(...args) {
-        const output = args.map(arg => 
-            typeof arg === 'string' ? arg : JSON.stringify(arg)
-        ).join(' ');
-        originalStderrWrite.call(process.stderr, output + '\n');
+    // 禁用 console.error
+    console.error = function() {
+        return;
     };
 }
 
@@ -125,7 +76,7 @@ const asyncHandler = fn => (req, res, next) => {
 
 // Centralized error handler middleware
 const errorHandler = (err, req, res, next) => {
-    console.error('错误:', err);
+    // 静默处理错误，不输出到控制台
     res.status(500).json({ success: false, message: '服务器错误', error: err.message });
 };
 
@@ -147,10 +98,14 @@ const readDB = async () => {
                 }
             }
         }
+        // 确保messages对象存在
+        if (!db.messages) {
+            db.messages = {};
+        }
         return db;
     } catch (error) {
         // If the file doesn't exist or is empty, start with a default structure
-        return { users: {}, lastQQ: 10000, nicknames: {} };
+        return { users: {}, lastQQ: 10000, nicknames: {}, messages: {} };
     }
 };
 
@@ -158,6 +113,15 @@ const readDB = async () => {
 const writeDB = async (data) => {
     await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2));
 };
+
+// Ensure DB exists before starting
+(async () => {
+    try {
+        await fs.access(DB_PATH);
+    } catch (error) {
+        await writeDB({ users: {}, lastQQ: 10000, nicknames: {}, messages: {} });
+    }
+})();
 
 // Register endpoint
 app.post('/api/register', asyncHandler(async (req, res) => {
@@ -181,7 +145,7 @@ app.post('/api/register', asyncHandler(async (req, res) => {
     const bgColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
     const svg = `
         <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="50" fill="${bgColor}"/>
+            <rect x="0" y="0" width="100" height="100" fill="${bgColor}"/>
             <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="50" fill="#fff">${firstChar}</text>
         </svg>
     `;
@@ -269,13 +233,13 @@ app.get('/api/users/:qq', asyncHandler(async (req, res) => {
 // 修改 Get friends list API
 app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
     const { qq } = req.params;
-    console.log(`获取好友列表请求: QQ=${qq}`);
+    console.log(`[SERVER] 获取好友列表请求: QQ=${qq}`);
     
         const db = await readDB();
         const user = db.users[qq];
 
         if (!user) {
-            console.error(`用户不存在: QQ=${qq}`);
+            console.error(`[SERVER] 用户不存在: QQ=${qq}`);
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
@@ -283,7 +247,7 @@ app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
         const friendsDetails = user.friends.map(friendQq => {
             const friendInfo = db.users[friendQq];
             if (!friendInfo) {
-                console.error(`好友不存在: QQ=${friendQq}`);
+                console.error(`[SERVER] 好友不存在: QQ=${friendQq}`);
                 return null;
             }
             return {
@@ -296,14 +260,14 @@ app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
             };
         }).filter(Boolean);
 
-        console.log(`用户 ${qq} 的好友列表: ${friendsDetails.length}个好友`);
-        console.log(`好友详情样例:`, friendsDetails.length > 0 ? friendsDetails[0] : '无好友');
+        console.log(`[SERVER] 用户 ${qq} 的好友列表: ${friendsDetails.length}个好友`);
+        console.log(`[SERVER] 好友详情样例:`, friendsDetails.length > 0 ? friendsDetails[0] : '无好友');
 
         // 收集好友请求信息
         const requestsDetails = (user.friendRequestsReceived || []).map(requesterQq => {
             const requesterInfo = db.users[requesterQq];
             if (!requesterInfo) {
-                console.error(`请求者不存在: QQ=${requesterQq}`);
+                console.error(`[SERVER] 请求者不存在: QQ=${requesterQq}`);
                 return null;
             }
             return {
@@ -314,13 +278,15 @@ app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
             };
         }).filter(Boolean);
 
-        console.log(`用户 ${qq} 有${requestsDetails.length}个好友请求`);
+        console.log(`[SERVER] 用户 ${qq} 有${requestsDetails.length}个好友请求`);
 
-        res.json({ 
+        const responseData = { 
             success: true, 
             friends: friendsDetails, 
             requests: requestsDetails
-        });
+        };
+        console.log('[SERVER] 发送好友列表响应:', JSON.stringify(responseData, null, 2));
+        res.json(responseData);
 }));
 
 // Search for users
@@ -620,6 +586,24 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
         
         res.json(response);
         console.log(`---------- 状态更新请求处理完成 ----------`);
+
+        // Notify friends about the status change
+        if (user && user.friends) {
+            user.friends.forEach(friendQq => {
+                const friendSocket = clients.get(friendQq);
+                if (friendSocket && friendSocket.readyState === friendSocket.OPEN) {
+                    friendSocket.send(JSON.stringify({
+                        type: 'friend-status-update',
+                        payload: {
+                            qq,
+                            status
+                        }
+                    }));
+                    console.log(`已通知好友 ${friendQq} 关于 ${qq} 的状态更新`);
+                }
+            });
+        }
+
     } catch (error) {
         console.error('更新状态时出错:', error);
         res.status(500).json({ 
@@ -630,52 +614,662 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
     }
 }));
 
+// 为所有用户重新生成头像
+app.post('/api/regenerate-avatars', asyncHandler(async (req, res) => {
+    const db = await readDB();
+    
+    // 遍历所有用户并重新生成头像
+    for (const qq in db.users) {
+        const user = db.users[qq];
+        const nickname = user.nickname;
+        const firstChar = nickname.charAt(0).toUpperCase();
+        const bgColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        const svg = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+                <rect x="0" y="0" width="100" height="100" fill="${bgColor}"/>
+                <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="50" fill="#fff">${firstChar}</text>
+            </svg>
+        `;
+        const avatar = `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+        
+        // 更新用户的头像
+        db.users[qq].avatar = avatar;
+    }
+    
+    await writeDB(db);
+    
+    res.json({ success: true, message: '所有用户头像已重新生成' });
+}));
+
+// 更新用户头像
+app.post('/api/update-avatar/:qq', asyncHandler(async (req, res) => {
+    const qq = req.params.qq;
+    const { avatar } = req.body;
+    
+    if (!avatar) {
+        return res.status(400).json({ success: false, message: '头像数据不能为空' });
+    }
+    
+    const db = await readDB();
+    const user = db.users[qq];
+    
+    if (!user) {
+        return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    
+    // 更新用户的头像
+    user.avatar = avatar;
+    await writeDB(db);
+    
+    res.json({ 
+        success: true, 
+        message: '头像已更新',
+        user: {
+            qq,
+            nickname: user.nickname,
+            signature: user.signature || '这个人很懒，什么都没留下',
+            avatar: user.avatar,
+            status: user.status || 'online'
+        }
+    });
+}));
+
+// 存储聊天消息
+app.post('/api/messages/send', asyncHandler(async (req, res) => {
+    const { senderQq, receiverQq, message } = req.body;
+    
+    if (!senderQq || !receiverQq || !message) {
+        return res.status(400).json({ success: false, message: '发送者、接收者和消息内容都是必需的' });
+    }
+    
+    // 创建消息ID
+    const timestamp = Date.now();
+    const messageId = `${timestamp}_${Math.random().toString(36).substring(2, 15)}`;
+    
+    // 先立即通过WebSocket发送消息给接收者，不等待数据库操作
+    const receiverSocket = clients.get(receiverQq);
+    if (receiverSocket && receiverSocket.readyState === receiverSocket.OPEN) {
+        try {
+            receiverSocket.send(JSON.stringify({
+                type: 'new-message',
+                payload: {
+                    id: messageId,
+                    sender: senderQq,
+                    content: message,
+                    timestamp
+                }
+            }));
+        } catch (error) {
+            // 静默处理WebSocket发送错误
+        }
+    }
+    
+    // 同时立即发送消息给发送者，确保双向同步
+    const senderSocket = clients.get(senderQq);
+    if (senderSocket && senderSocket.readyState === senderSocket.OPEN && senderSocket !== receiverSocket) {
+        try {
+            senderSocket.send(JSON.stringify({
+                type: 'message-sent-confirmation',
+                payload: {
+                    id: messageId,
+                    receiver: receiverQq,
+                    content: message,
+                    timestamp
+                }
+            }));
+        } catch (error) {
+   4
+   123
+   4
+            // 静默处理WebSocket发送错误
+        }
+    }
+    
+    // 异步处理数据库存储，不阻塞响应
+    (async () => {
+        try {
+            const db = await readDB();
+            
+            // 验证发送者和接收者是否存在
+            if (!db.users[senderQq] || !db.users[receiverQq]) {
+                return; // 静默失败
+            }
+            
+            // 创建消息对象
+            const messageObj = {
+                id: messageId,
+                sender: senderQq,
+                receiver: receiverQq,
+                content: message,
+                timestamp,
+                read: false
+            };
+            
+            // 确保消息存储结构存在
+            if (!db.messages[senderQq]) {
+                db.messages[senderQq] = {};
+            }
+            if (!db.messages[senderQq][receiverQq]) {
+                db.messages[senderQq][receiverQq] = [];
+            }
+            
+            // 存储消息
+            db.messages[senderQq][receiverQq].push(messageObj);
+            
+            // 确保接收者的消息存储结构存在
+            if (!db.messages[receiverQq]) {
+                db.messages[receiverQq] = {};
+            }
+            if (!db.messages[receiverQq][senderQq]) {
+                db.messages[receiverQq][senderQq] = [];
+            }
+            
+            // 在接收者的消息列表中也存储一份
+            db.messages[receiverQq][senderQq].push(messageObj);
+            
+            await writeDB(db);
+        } catch (error) {
+            // 静默处理数据库错误
+        }
+    })();
+    
+    // 立即返回成功响应
+    res.json({ 
+        success: true, 
+        message: '消息发送成功',
+        messageId
+    });
+}));
+
+// 获取与特定用户的聊天历史
+app.get('/api/messages/:userQq/:otherQq', asyncHandler(async (req, res) => {
+    try {
+        const { userQq, otherQq } = req.params;
+        const limit = parseInt(req.query.limit) || 50; // 默认获取最近50条消息
+        
+        console.log(`获取聊天历史: 用户 ${userQq} 与 ${otherQq} 的对话，限制 ${limit} 条`);
+        
+        const db = await readDB();
+        
+        // 验证用户是否存在
+        if (!db.users[userQq] || !db.users[otherQq]) {
+            console.error(`获取聊天历史失败: 用户不存在 - 用户 ${userQq} 或 ${otherQq}`);
+            return res.status(404).json({ success: false, message: '用户不存在' });
+        }
+        
+        // 获取消息
+        let messages = [];
+        
+        if (db.messages && db.messages[userQq] && db.messages[userQq][otherQq]) {
+            // 深拷贝消息，避免修改原始数据
+            messages = JSON.parse(JSON.stringify(db.messages[userQq][otherQq]));
+            
+            // 验证消息格式
+            messages = messages.filter(msg => {
+                if (!msg || typeof msg !== 'object') {
+                    console.error('过滤无效消息:', msg);
+                    return false;
+                }
+                
+                // 确保消息有必要的字段
+                if (!msg.content) msg.content = '';
+                if (!msg.timestamp) msg.timestamp = Date.now();
+                if (!msg.sender) msg.sender = userQq; // 默认为当前用户
+                
+                return true;
+            });
+        }
+        
+        console.log(`找到 ${messages.length} 条消息记录`);
+        
+        // 按时间排序并限制数量
+        try {
+            messages.sort((a, b) => a.timestamp - b.timestamp);
+            messages = messages.slice(-limit);
+        } catch (sortError) {
+            console.error('排序消息时出错:', sortError);
+        }
+        
+        res.json({
+            success: true,
+            messages
+        });
+    } catch (error) {
+        console.error('获取聊天历史时出错:', error);
+        res.status(500).json({ success: false, message: '服务器错误', error: error.message });
+    }
+}));
+
+// 标记消息为已读
+app.post('/api/messages/read', asyncHandler(async (req, res) => {
+    const { userQq, otherQq } = req.body;
+    
+    if (!userQq || !otherQq) {
+        return res.status(400).json({ success: false, message: '用户ID和对方ID都是必需的' });
+    }
+    
+    const db = await readDB();
+    
+    // 验证用户是否存在
+    if (!db.users[userQq] || !db.users[otherQq]) {
+        return res.status(404).json({ success: false, message: '用户不存在' });
+    }
+    
+    // 标记消息为已读
+    if (db.messages[userQq] && db.messages[userQq][otherQq]) {
+        db.messages[userQq][otherQq].forEach(msg => {
+            if (msg.sender === otherQq) {
+                msg.read = true;
+            }
+        });
+        
+        await writeDB(db);
+    }
+    
+    res.json({
+        success: true,
+        message: '消息已标记为已读'
+    });
+}));
+
 app.use(errorHandler);
 
-app.listen(PORT, async () => {
-    console.log(`服务器热重载模式已启动，监听端口 ${PORT}`);
+const server = app.listen(PORT, () => {
+    // 服务器启动，不输出任何日志
+});
+
+// 重构WebSocket服务器
+const wss = new WebSocketServer({ server });
+
+// 存储客户端连接
+const clients = new Map();
+// 存储消息队列，用于确保消息可靠传递
+const messageQueues = new Map();
+// 存储消息确认状态
+const messageAcks = new Map();
+
+// 定期清理过期的消息确认
+setInterval(() => {
+    const now = Date.now();
+    for (const [messageId, data] of messageAcks.entries()) {
+        if (now - data.timestamp > 60000) { // 1分钟后过期
+            messageAcks.delete(messageId);
+        }
+    }
+}, 30000);
+
+// 处理新的WebSocket连接
+wss.on('connection', (ws) => {
+    let userQq = null;
     
-    // 执行用户数据迁移，确保所有用户有完整的字段
+    // 设置心跳检测
+    let heartbeatInterval;
+    const startHeartbeat = () => {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = setInterval(() => {
+            if (ws.readyState === ws.OPEN) {
+                try {
+                    ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+                } catch (e) {
+                    // 静默处理错误
+                }
+            }
+        }, 15000); // 每15秒发送一次心跳
+    };
+    
+    startHeartbeat();
+    
+    // 处理消息
+    ws.on('message', async (message) => {
+        try {
+            const data = JSON.parse(message);
+            
+            // 处理心跳响应
+            if (data.type === 'pong') {
+                return;
+            }
+            
+            // 处理消息确认
+            if (data.type === 'ack') {
+                const { messageId } = data;
+                if (messageId && messageAcks.has(messageId)) {
+                    messageAcks.delete(messageId);
+                }
+                return;
+            }
+            
+            // 用户登录
+            if (data.type === 'login' && data.qq) {
+                userQq = data.qq;
+                clients.set(userQq, ws);
+                
+                // 初始化消息队列
+                if (!messageQueues.has(userQq)) {
+                    messageQueues.set(userQq, []);
+                }
+                
+                // 发送所有排队的消息
+                const queuedMessages = messageQueues.get(userQq) || [];
+                while (queuedMessages.length > 0) {
+                    const queuedMsg = queuedMessages.shift();
+                    try {
+                        ws.send(JSON.stringify(queuedMsg));
+                    } catch (e) {
+                        // 发送失败，重新放回队列
+                        queuedMessages.unshift(queuedMsg);
+                        break;
+                    }
+                }
+                
+                // 通知好友上线
+                notifyFriendsStatus(userQq, 'online');
+                
+                // 发送未读消息通知
+                sendUnreadMessagesCount(userQq, ws);
+                return;
+            }
+            
+            // 发送消息
+            if (data.type === 'send-message') {
+                const { sender, receiver, content, clientMessageId } = data;
+                if (!sender || !receiver || !content) return;
+                
+                // 生成服务器端消息ID
+                const timestamp = Date.now();
+                const serverMessageId = `${timestamp}_${Math.random().toString(36).substring(2, 15)}`;
+                
+                // 立即确认消息已接收
+                sendToClient(ws, {
+                    type: 'message-received',
+                    payload: {
+                        clientMessageId,
+                        serverMessageId,
+                        timestamp
+                    }
+                });
+                
+                // 异步保存消息到数据库
+                saveMessageToDb(sender, receiver, content, serverMessageId, timestamp).then(() => {
+                    // 发送消息到接收者
+                    deliverMessage(sender, receiver, content, serverMessageId, timestamp);
+                    
+                    // 发送消息确认到发送者
+                    sendToClient(ws, {
+                        type: 'message-delivered',
+                        payload: {
+                            clientMessageId,
+                            serverMessageId,
+                            receiver,
+                            timestamp
+                        }
+                    });
+                }).catch(() => {
+                    // 发送存储失败通知
+                    sendToClient(ws, {
+                        type: 'message-store-failed',
+                        payload: {
+                            clientMessageId,
+                            serverMessageId
+                        }
+                    });
+                });
+                
+                return;
+            }
+            
+            // 消息已读通知
+            if (data.type === 'mark-read') {
+                const { userQq, otherQq } = data;
+                if (userQq && otherQq) {
+                    markMessagesAsRead(userQq, otherQq);
+                }
+                return;
+            }
+            
+            // 状态更新
+            if (data.type === 'status-update') {
+                const { qq, status } = data;
+                if (qq && status) {
+                    updateUserStatus(qq, status);
+                    notifyFriendsStatus(qq, status);
+                }
+                return;
+            }
+            
+            // 处理心跳消息
+            if (data.type === 'ping') {
+                try {
+                    ws.send(JSON.stringify({ type: 'pong' }));
+                } catch (error) {
+                    // 静默处理错误
+                }
+                return;
+            }
+            
+        } catch (error) {
+            // 静默处理解析错误
+        }
+    });
+    
+    // 处理连接关闭
+    ws.on('close', () => {
+        if (userQq) {
+            clients.delete(userQq);
+            clearInterval(heartbeatInterval);
+            
+            // 更新用户状态为离线
+            updateUserStatus(userQq, 'offline');
+            notifyFriendsStatus(userQq, 'offline');
+        }
+    });
+    
+    // 处理错误
+    ws.on('error', () => {
+        // 静默处理错误
+    });
+});
+
+// 发送消息到客户端，带重试机制
+function sendToClient(ws, message, maxRetries = 3) {
+    if (!ws || ws.readyState !== ws.OPEN) return false;
+    
+    try {
+        ws.send(JSON.stringify(message));
+        return true;
+    } catch (error) {
+        if (maxRetries > 0) {
+            setTimeout(() => {
+                sendToClient(ws, message, maxRetries - 1);
+            }, 100);
+        }
+        return false;
+    }
+}
+
+// 将消息投递到接收者
+function deliverMessage(sender, receiver, content, messageId, timestamp) {
+    const receiverWs = clients.get(receiver);
+    
+    // 创建消息对象
+    const messageObj = {
+        type: 'new-message',
+        payload: {
+            id: messageId,
+            sender,
+            content,
+            timestamp
+        }
+    };
+    
+    // 如果接收者在线，直接发送
+    if (receiverWs && receiverWs.readyState === receiverWs.OPEN) {
+        const sent = sendToClient(receiverWs, messageObj);
+        if (!sent) {
+            // 发送失败，加入队列
+            const queue = messageQueues.get(receiver) || [];
+            queue.push(messageObj);
+            messageQueues.set(receiver, queue);
+        }
+    } else {
+        // 接收者不在线，加入队列
+        const queue = messageQueues.get(receiver) || [];
+        queue.push(messageObj);
+        messageQueues.set(receiver, queue);
+    }
+}
+
+// 异步保存消息到数据库
+async function saveMessageToDb(sender, receiver, content, messageId, timestamp) {
     try {
         const db = await readDB();
-        let needsUpdate = false;
         
-        // 检查并更新每个用户
-        for (const qq in db.users) {
-            const user = db.users[qq];
-            if (!user.signature) {
-                user.signature = '这个人很懒，什么都没留下';
-                needsUpdate = true;
-                console.log(`为用户 ${user.nickname} (QQ: ${qq}) 添加默认签名`);
-            }
-            if (!user.status) {
-                user.status = 'online';
-                needsUpdate = true;
-                console.log(`为用户 ${user.nickname} (QQ: ${qq}) 添加默认状态`);
-            }
-            if (!user.friends) {
-                user.friends = [];
-                needsUpdate = true;
-                console.log(`为用户 ${user.nickname} (QQ: ${qq}) 初始化好友列表`);
-            }
-            if (!user.friendRequestsSent) {
-                user.friendRequestsSent = [];
-                needsUpdate = true;
-                console.log(`为用户 ${user.nickname} (QQ: ${qq}) 初始化发送的好友请求`);
-            }
-            if (!user.friendRequestsReceived) {
-                user.friendRequestsReceived = [];
-                needsUpdate = true;
-                console.log(`为用户 ${user.nickname} (QQ: ${qq}) 初始化接收的好友请求`);
+        // 验证发送者和接收者是否存在
+        if (!db.users[sender] || !db.users[receiver]) {
+            throw new Error('用户不存在');
+        }
+        
+        // 创建消息对象
+        const messageObj = {
+            id: messageId,
+            sender,
+            receiver,
+            content,
+            timestamp,
+            read: false
+        };
+        
+        // 确保消息存储结构存在
+        if (!db.messages[sender]) {
+            db.messages[sender] = {};
+        }
+        if (!db.messages[sender][receiver]) {
+            db.messages[sender][receiver] = [];
+        }
+        
+        // 存储消息
+        db.messages[sender][receiver].push(messageObj);
+        
+        // 确保接收者的消息存储结构存在
+        if (!db.messages[receiver]) {
+            db.messages[receiver] = {};
+        }
+        if (!db.messages[receiver][sender]) {
+            db.messages[receiver][sender] = [];
+        }
+        
+        // 在接收者的消息列表中也存储一份
+        db.messages[receiver][sender].push(messageObj);
+        
+        await writeDB(db);
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+// 标记消息为已读
+async function markMessagesAsRead(userQq, otherQq) {
+    try {
+        const db = await readDB();
+        
+        // 验证用户是否存在
+        if (!db.users[userQq] || !db.users[otherQq]) {
+            return false;
+        }
+        
+        // 标记消息为已读
+        if (db.messages[userQq] && db.messages[userQq][otherQq]) {
+            let hasUnread = false;
+            db.messages[userQq][otherQq].forEach(msg => {
+                if (msg.sender === otherQq && !msg.read) {
+                    msg.read = true;
+                    hasUnread = true;
+                }
+            });
+            
+            if (hasUnread) {
+                await writeDB(db);
+                
+                // 通知客户端更新未读消息计数
+                const userWs = clients.get(userQq);
+                if (userWs && userWs.readyState === userWs.OPEN) {
+                    sendUnreadMessagesCount(userQq, userWs);
+                }
             }
         }
         
-        // 如果有更新，保存到文件
-        if (needsUpdate) {
-            await writeDB(db);
-            console.log('完成用户数据迁移');
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+// 发送未读消息计数
+async function sendUnreadMessagesCount(userQq, ws) {
+    try {
+        const db = await readDB();
+        
+        if (db.messages && db.messages[userQq]) {
+            const unreadMessages = {};
+            
+            // 遍历所有与该用户有聊天记录的好友
+            for (const friendQq in db.messages[userQq]) {
+                // 过滤出未读消息
+                const unread = db.messages[userQq][friendQq].filter(
+                    msg => msg.sender === friendQq && !msg.read
+                );
+                
+                if (unread.length > 0) {
+                    unreadMessages[friendQq] = unread.length;
+                }
+            }
+            
+            // 如果有未读消息，发送通知
+            if (Object.keys(unreadMessages).length > 0) {
+                sendToClient(ws, {
+                    type: 'unread-messages',
+                    payload: unreadMessages
+                });
+            }
         }
     } catch (error) {
-        console.error('用户数据迁移失败:', error);
+        // 静默处理错误
     }
-});
+}
+
+// 通知好友状态变化
+async function notifyFriendsStatus(userQq, status) {
+    try {
+        const db = await readDB();
+        const user = db.users[userQq];
+        
+        if (user && user.friends) {
+            user.friends.forEach(friendQq => {
+                const friendWs = clients.get(friendQq);
+                if (friendWs && friendWs.readyState === friendWs.OPEN) {
+                    sendToClient(friendWs, {
+                        type: 'friend-status-update',
+                        payload: { qq: userQq, status }
+                    });
+                }
+            });
+        }
+    } catch (error) {
+        // 静默处理错误
+    }
+}
+
+// 更新用户状态
+async function updateUserStatus(userQq, status) {
+    try {
+        const db = await readDB();
+        const user = db.users[userQq];
+        
+        if (user) {
+            user.status = status;
+            await writeDB(db);
+        }
+    } catch (error) {
+        // 静默处理错误
+    }
+}

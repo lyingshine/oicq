@@ -1,3 +1,4 @@
+
 .title-bar {
     background: linear-gradient(to bottom, #bfe1ff, #89c5f7);
     border-bottom: 1px solid #4e94d8;
@@ -80,9 +81,15 @@
 .main-avatar {
     width: 100%;
     height: 100%;
-    border-radius: 3px;
+    border-radius: 3px; /* 保持方形边缘 */
     object-fit: cover;
     border: 1px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.main-avatar:hover {
+    filter: brightness(0.9);
 }
 
 .status-icon {
@@ -91,7 +98,7 @@
     right: -2px;
     width: 12px;
     height: 12px;
-    border-radius: 50%;
+    border-radius: 3px; /* 改为方形 */
     border: 2px solid #fff;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
     transition: background-color 0.3s ease, transform 0.2s ease;
@@ -102,6 +109,50 @@
 .status-icon.busy { background-color: #f44336; }
 .status-icon.invisible { background-color: #9e9e9e; }
 .status-icon.test-fail { background-color: #ff4444; }
+
+/* 好友列表中的小状态图标 */
+.status-icon-small {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 3px; /* 方形边角 */
+    border: 1px solid #fff;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+/* 状态图标颜色 */
+.status-icon-small.online { background-color: #44b549; } /* 绿色 - 在线 */
+.status-icon-small.away { background-color: #ffc107; } /* 黄色 - 离开 */
+.status-icon-small.busy { background-color: #f44336; } /* 红色 - 忙碌 */
+.status-icon-small.invisible, .status-icon-small.offline { background-color: #9e9e9e; } /* 灰色 - 隐身/离线 */
+
+/* 好友状态文本样式 */
+.friend-status {
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+/* 不同状态的好友状态文本颜色 */
+.friend-item.online .friend-status { color: #44b549; }
+.friend-item.away .friend-status { color: #ffc107; }
+.friend-item.busy .friend-status { color: #f44336; }
+.friend-item.invisible .friend-status, .friend-item.offline .friend-status { color: #9e9e9e; }
+
+/* 好友项目的不同状态样式 */
+.friend-item.offline .friend-name, 
+.friend-item.offline .friend-signature, 
+.friend-item.invisible .friend-name, 
+.friend-item.invisible .friend-signature { 
+    color: #888; 
+}
+
+.friend-item.offline img, 
+.friend-item.invisible img { 
+    filter: grayscale(100%); 
+    opacity: 0.8; 
+}
 
 /* 已移除侧边栏滚动箭头相关样式 */
 
@@ -197,6 +248,43 @@
     background-color: #fff;
 }
 
+/* 好友分组样式 */
+.friend-group {
+    margin-bottom: 1px;
+}
+
+.group-title {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+}
+
+.group-title i {
+    margin-right: 5px;
+    transition: transform 0.2s ease;
+}
+
+.group-title .fa-chevron-right.rotated {
+    transform: rotate(90deg);
+}
+
+.group-title .online-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: #666;
+}
+
+.friend-sublist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
 .friend-group-header {
     border-bottom: 1px solid #f0f0f0;
 }
@@ -205,19 +293,69 @@
     background-color: #f9f9f9;
 }
 
-.friend-item.offline .friend-name, .friend-item.offline .friend-signature { color: #888; }
-.friend-item.offline img { filter: grayscale(100%); opacity: 0.8; }
+.friend-item {
+    display: flex;
+    padding: 8px;
+    align-items: flex-start;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.1s;
+}
 
-.friend-avatar {
-    border: 1px solid #eee;
+.friend-item:hover {
+    background-color: #f5f5f5;
+}
+
+.friend-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* 好友名称和状态在同一行 */
+.friend-name-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 2px;
 }
 
 .friend-name {
+    font-size: 13px;
+    font-weight: bold;
     color: #333;
+    margin-right: 6px;
 }
 
+.friend-status {
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+}
+
+/* 移除状态文本前的小圆点 */
+/* .friend-status::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 4px;
+} */
+
+/* 不同状态的好友状态文本颜色 */
+.friend-item.online .friend-status { color: #44b549; }
+.friend-item.away .friend-status { color: #ffc107; }
+.friend-item.busy .friend-status { color: #f44336; }
+.friend-item.invisible .friend-status, .friend-item.offline .friend-status { color: #9e9e9e; }
+
 .friend-signature {
-    color: #777;
+    font-size: 11px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .bottom-tabs {
@@ -259,17 +397,26 @@
 }
 
 .footer-icon {
-    width: 24px;
-    height: 24px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: 0 4px;
+    color: #003366;
     cursor: pointer;
-    color: #666;
+    border-radius: 5px;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    position: relative;
 }
 
 .footer-icon:hover {
-    color: #000;
+    background-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.footer-icon i {
+    font-size: 16px;
 }
 
 .footer-icon::before {
@@ -322,6 +469,42 @@
 .friend-request-actions .reject-btn:hover {
     background-color: #c9302c;
 }
+
+/* 添加 request-actions 样式 */
+.request-actions {
+    display: flex;
+    gap: 5px;
+    margin-left: auto;
+}
+
+.request-actions .accept-btn {
+    padding: 4px 8px;
+    background-color: #2a9d4a;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.request-actions .accept-btn:hover {
+    background-color: #238b41;
+}
+
+.request-actions .reject-btn {
+    padding: 4px 8px;
+    background-color: #d9534f;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.request-actions .reject-btn:hover {
+    background-color: #c9302c;
+}
+
 .footer-icon .notification-badge {
     background-color: #d9534f;
 }
@@ -357,7 +540,7 @@
 .status-dot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: 3px; /* 改为方形 */
     margin-right: 8px;
     display: inline-block;
 }
@@ -403,7 +586,7 @@
 .status-menu li i {
     width: 12px;
     height: 12px;
-    border-radius: 50%;
+    border-radius: 3px; /* 改为方形 */
     display: inline-block;
 }
 
@@ -487,4 +670,490 @@
     60% { transform: translateX(-2px); }
     80% { transform: translateX(2px); }
     100% { transform: translateX(0); }
+} 
+
+/* Profile Card Styles */
+.profile-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.profile-card-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.profile-avatar-wrapper {
+    position: relative;
+    cursor: pointer;
+}
+
+.profile-card-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 3px; /* 改为方形 */
+    object-fit: cover;
+}
+
+/* 修改头像覆盖层样式 */
+.profile-avatar-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.profile-avatar-wrapper:hover .profile-avatar-overlay {
+    opacity: 1;
+}
+
+.profile-card input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.profile-card-footer {
+    padding: 10px 15px;
+    border-top: 1px solid #eee;
+    text-align: right;
+}
+
+.save-btn {
+    padding: 8px 15px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+} 
+
+.main-menu-popup {
+    position: absolute;
+    bottom: 38px; /* Position it above the footer */
+    left: 5px;
+    width: 150px;
+    background-color: #f0f8ff;
+    border: 1px solid #a5c7e7;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    padding: 4px;
+}
+
+.main-menu-popup.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.main-menu-popup ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+} 
+
+.footer-icon#main-menu-btn {
+    background: linear-gradient(to bottom, #f0f8ff, #e0eefb);
+    border: 1px solid #a5c7e7;
+    border-radius: 3px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+.footer-icon#main-menu-btn:hover {
+    background: linear-gradient(to bottom, #d4e8f7, #c5ddec);
+} 
+
+/* 头像选项 */
+.avatar-options {
+    display: flex;
+    justify-content: space-between;
+    margin: 10px 0;
+    width: 100%;
+    gap: 10px;
+}
+
+.avatar-option-btn {
+    flex: 1;
+    padding: 8px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.avatar-option-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.avatar-option-btn:active {
+    background-color: #d0d0d0;
+} 
+
+/* 置顶按钮样式 */
+#pin-btn {
+    font-size: 12px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#pin-btn i {
+    font-size: 10px;
+    transform: rotate(45deg);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+#pin-btn.active i {
+    transform: rotate(0deg);
+    color: #44b549;
+} 
+
+.friend-item.offline {
+    opacity: 0.6;
+}
+
+.friend-item.offline .friend-avatar {
+    filter: grayscale(100%);
+}
+
+.friend-avatar.invisible {
+    filter: grayscale(100%);
+}
+
+.friend-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 3px;
+    margin-right: 10px;
+    position: relative; /* 添加相对定位 */
+}
+
+/* 添加好友头像中的图片样式 */
+.friend-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 3px;
+    object-fit: cover; /* 确保图片覆盖整个区域并保持比例 */
+    border: 1px solid rgba(0, 0, 0, 0.1);
+} 
+
+/* 好友资料卡样式 */
+#friend-profile-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    max-width: 90%;
+    z-index: 1000;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+    overflow: hidden;
+    animation: fadeIn 0.2s ease-out;
+}
+
+#friend-profile-card .profile-card-body {
+    padding: 15px;
+}
+
+#friend-profile-card .profile-card-body p {
+    margin: 8px 0;
+    font-size: 13px;
+}
+
+#friend-profile-card .profile-avatar-wrapper {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 15px;
+}
+
+#friend-profile-card .profile-card-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 15px;
+}
+
+.chat-btn {
+    padding: 6px 12px;
+    background-color: #44b549;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.chat-btn:hover {
+    background-color: #3da142;
+}
+
+.delete-btn {
+    padding: 6px 12px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.delete-btn:hover {
+    background-color: #d32f2f;
+}
+
+/* 聊天窗口样式 */
+.chat-window {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    height: 400px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    overflow: hidden;
+}
+
+.chat-window.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.chat-window.minimized {
+    height: 40px;
+    overflow: hidden;
+}
+
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: linear-gradient(to bottom, #f0f8ff, #e0eefb);
+    border-bottom: 1px solid #c5ddec;
+    cursor: move;
+}
+
+.chat-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chat-name {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.chat-status {
+    font-size: 12px;
+}
+
+.chat-status.online { color: #44b549; }
+.chat-status.away { color: #ffc107; }
+.chat-status.busy { color: #f44336; }
+.chat-status.invisible, .chat-status.offline { color: #9e9e9e; }
+
+.chat-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.chat-controls button {
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+}
+
+.chat-controls button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+    background-color: #f5f5f5;
+}
+
+.chat-welcome {
+    text-align: center;
+    color: #888;
+    font-size: 12px;
+    margin: 10px 0;
+}
+
+.chat-time {
+    font-size: 10px;
+    color: #aaa;
+    margin-top: 2px;
+}
+
+.message-container {
+    display: flex;
+    margin-bottom: 10px;
+}
+
+.message-container.outgoing {
+    justify-content: flex-end;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.message-container.outgoing .message-bubble {
+    background-color: #d1e9ff;
+    border: 1px solid #b8dcff;
+}
+
+.message-container.incoming .message-bubble {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+}
+
+.message-content {
+    font-size: 13px;
+    word-break: break-word;
+}
+
+.message-time {
+    font-size: 10px;
+    color: #888;
+    text-align: right;
+    margin-top: 3px;
+}
+
+.chat-input-area {
+    padding: 10px;
+    border-top: 1px solid #ddd;
+    background-color: #f9f9f9;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-toolbar {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.chat-toolbar button {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.chat-toolbar button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.chat-input {
+    width: 100%;
+    height: 60px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    resize: none;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.send-btn {
+    align-self: flex-end;
+    padding: 5px 15px;
+    background-color: #44b549;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.send-btn:hover {
+    background-color: #3da142;
+} 
+
+/* 未读消息指示器 */
+.unread-badge {
+    display: none;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    min-width: 18px;
+    height: 18px;
+    background-color: #f44336;
+    color: white;
+    border-radius: 10px;
+    font-size: 12px;
+    text-align: center;
+    line-height: 18px;
+    padding: 0 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    font-weight: bold;
+}
+
+/* 头像闪烁效果 */
+@keyframes avatar-flash {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.avatar-flashing {
+    animation: avatar-flash 1s infinite;
+    border: 2px solid #f44336 !important;
 } 
