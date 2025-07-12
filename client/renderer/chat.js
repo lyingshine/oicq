@@ -1,6 +1,17 @@
 let currentFriendQq = null;
 let currentUserQq = null;
 
+// 添加消息批处理支持
+let messageQueue = [];
+let isProcessingMessages = false;
+const MESSAGE_BATCH_SIZE = 10; // 批量渲染的消息数
+const MESSAGE_PROCESS_INTERVAL = 50; // 批量处理间隔，毫秒
+
+// 添加虚拟列表支持
+let visibleMessages = [];
+const MAX_VISIBLE_MESSAGES = 100; // 最大可见消息数
+let isScrolledToBottom = true;
+
 document.addEventListener('DOMContentLoaded', () => {
     // 设置当前时间
     document.getElementById('chat-start-time').textContent = new Date().toLocaleTimeString();
@@ -44,6 +55,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // 阻止事件冒泡，防止重复触发
         e.stopPropagation();
     });
+
+    // 监听滚动事件，判断是否在底部
+    const messagesContainer = document.getElementById('chat-messages');
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', () => {
+            // 如果离底部不超过10px，认为是在底部
+            const isNearBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 10;
+            if (isNearBottom !== isScrolledToBottom) {
+                isScrolledToBottom = isNearBottom;
+            }
+        });
+    }
     
     // 监听好友信息
     window.electronAPI.onChatFriendInfo(async (data) => {
@@ -71,6 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log(`聊天窗口已准备好: 与 ${data.friendInfo.nickname} (${currentFriendQq}) 聊天`);
         
+        // 清空消息队列和已显示的消息
+        messageQueue = [];
+        visibleMessages = [];
+        clearMessageContainer();
+        
         // 加载聊天历史
         await loadChatHistory();
         
@@ -97,20 +125,21 @@ document.addEventListener('DOMContentLoaded', () => {
             // 确保消息显示在聊天窗口中
             const time = data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
             
-            // 检查消息是否已经显示
-            const messageElements = document.querySelectorAll('.message-content');
-            let messageExists = false;
+            // 检查消息是否已经在队列中
+            const isDuplicate = messageQueue.some(msg => 
+                msg.isOutgoing && msg.content === data.content
+            ) || visibleMessages.some(msg => 
+                msg.isOutgoing && msg.content === data.content
+            );
             
-            for (const element of messageElements) {
-                if (element.textContent === data.content || element.innerHTML === formatMessage(data.content)) {
-                    messageExists = true;
-                    break;
-                }
-            }
-            
-            // 如果消息不存在，则添加
-            if (!messageExists) {
-                addMessage(data.content, true, time);
+            // 如果消息不存在，则添加到消息队列
+            if (!isDuplicate) {
+                queueMessage({
+                    content: data.content,
+                    isOutgoing: true,
+                    time,
+                    messageId: data.messageId
+                });
             }
         });
     }
@@ -124,34 +153,20 @@ document.addEventListener('DOMContentLoaded', () => {
         
         console.log('收到新消息:', data.message);
         
-        // 使用更高优先级的方式添加消息
-        requestAnimationFrame(() => {
-            // 立即添加消息
-            addMessage(data.message, false, new Date(data.timestamp || Date.now()).toLocaleTimeString(), data.messageId);
-            
-            // 强制DOM重绘
-            document.body.style.display = 'none';
-            document.body.offsetHeight; // 触发重排
-            document.body.style.display = '';
-            
-            // 确保消息区域滚动到最新消息
-            const messagesContainer = document.getElementById('chat-messages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                
-                // 双重保险：再次滚动到底部
-                setTimeout(() => {
-                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                }, 50);
-            }
-            
-            // 确认消息已显示
-            try {
-                window.electronAPI.confirmMessageDisplayed(data.messageId);
-            } catch (error) {
-                console.error('确认消息显示失败:', error);
-            }
-        });
+        const messageData = {
+            content: data.message,
+            isOutgoing: false,
+            time: new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+            messageId: data.messageId
+        };
+        
+        // 添加消息到队列
+        queueMessage(messageData);
+        
+        // 确认消息已显示
+        if (data.messageId) {
+            window.electronAPI.confirmMessageDisplayed(data.messageId);
+        }
     });
     
     // 监听消息发送失败
@@ -179,6 +194,124 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePinButtonState(isAlwaysOnTop);
     });
 });
+
+// 清空消息容器
+function clearMessageContainer() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (!messagesContainer) return;
+    
+    // 保留欢迎消息
+    const welcomeMessage = messagesContainer.querySelector('.chat-welcome');
+    messagesContainer.innerHTML = '';
+    if (welcomeMessage) {
+        messagesContainer.appendChild(welcomeMessage);
+    }
+}
+
+// 将消息添加到队列并触发处理
+function queueMessage(messageData) {
+    // 添加到队列
+    messageQueue.push(messageData);
+    
+    // 如果队列中有消息但没有正在处理，则开始处理
+    if (!isProcessingMessages) {
+        processMessageQueue();
+    }
+}
+
+// 批量处理消息队列
+function processMessageQueue() {
+    if (messageQueue.length === 0) {
+        isProcessingMessages = false;
+        return;
+    }
+    
+    isProcessingMessages = true;
+    
+    // 取出一批消息进行处理
+    const batch = messageQueue.splice(0, MESSAGE_BATCH_SIZE);
+    
+    // 添加到DOM
+    const fragment = document.createDocumentFragment();
+    batch.forEach(msg => {
+        const messageElement = createMessageElement(msg);
+        fragment.appendChild(messageElement);
+        
+        // 添加到可见消息列表
+        visibleMessages.push(msg);
+    });
+    
+    // 如果可见消息超过限制，移除最早的消息
+    if (visibleMessages.length > MAX_VISIBLE_MESSAGES) {
+        const removeCount = visibleMessages.length - MAX_VISIBLE_MESSAGES;
+        visibleMessages.splice(0, removeCount);
+        
+        // 从DOM中删除对应数量的旧消息
+        const messagesContainer = document.getElementById('chat-messages');
+        if (messagesContainer) {
+            const messageElements = messagesContainer.querySelectorAll('.message-container');
+            for (let i = 0; i < removeCount && i < messageElements.length; i++) {
+                if (!messageElements[i].classList.contains('chat-welcome')) {
+                    messagesContainer.removeChild(messageElements[i]);
+                }
+            }
+        }
+    }
+    
+    // 将片段添加到容器
+    const messagesContainer = document.getElementById('chat-messages');
+    if (messagesContainer) {
+        messagesContainer.appendChild(fragment);
+        
+        // 如果之前在底部，则滚动到底部
+        if (isScrolledToBottom) {
+            scrollToBottom();
+        }
+    }
+    
+    // 如果队列中还有消息，安排下一次处理
+    if (messageQueue.length > 0) {
+        setTimeout(processMessageQueue, MESSAGE_PROCESS_INTERVAL);
+    } else {
+        isProcessingMessages = false;
+    }
+}
+
+// 滚动到底部
+function scrollToBottom() {
+    const messagesContainer = document.getElementById('chat-messages');
+    if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+}
+
+// 创建消息元素
+function createMessageElement(messageData) {
+    const { content, isOutgoing, time, messageId } = messageData;
+    
+    const container = document.createElement('div');
+    container.className = `message-container ${isOutgoing ? 'outgoing' : 'incoming'}`;
+    if (messageId) {
+        container.dataset.messageId = messageId;
+    }
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'message-bubble';
+    
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    messageContent.innerHTML = formatMessage(content);
+    
+    const messageTime = document.createElement('div');
+    messageTime.className = 'message-time';
+    messageTime.textContent = time;
+    
+    bubble.appendChild(messageContent);
+    bubble.appendChild(messageTime);
+    container.appendChild(bubble);
+    
+    return container;
+}
 
 // 更新置顶按钮状态
 async function updatePinButtonState(isAlwaysOnTop = null) {
@@ -209,22 +342,14 @@ async function loadChatHistory() {
         console.log(`正在加载与 ${currentFriendQq} 的聊天历史`);
         const messages = await window.electronAPI.getChatHistory(currentFriendQq);
         
-        // 清空现有消息（除了欢迎消息）
-        const messagesContainer = document.getElementById('chat-messages');
-        if (!messagesContainer) {
-            console.error('找不到消息容器元素');
-            return;
-        }
+        // 清空现有消息
+        clearMessageContainer();
         
-        const welcomeMessage = messagesContainer.querySelector('.chat-welcome');
-        messagesContainer.innerHTML = '';
-        if (welcomeMessage) {
-            messagesContainer.appendChild(welcomeMessage);
-        }
-        
-        // 添加历史消息
+        // 添加历史消息到队列
         if (Array.isArray(messages)) {
             console.log(`收到 ${messages.length} 条历史消息`);
+            
+            // 将历史消息添加到队列
             messages.forEach(msg => {
                 if (!msg || typeof msg !== 'object') {
                     console.error('无效的消息格式:', msg);
@@ -232,9 +357,12 @@ async function loadChatHistory() {
                 }
                 
                 try {
-                    const isOutgoing = msg.sender === currentUserQq;
-                    const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
-                    addMessage(msg.content || '空消息', isOutgoing, time);
+                    queueMessage({
+                        content: msg.content || '空消息',
+                        isOutgoing: msg.sender === currentUserQq,
+                        time: msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
+                        messageId: msg.messageId
+                    });
                 } catch (msgError) {
                     console.error('处理单条消息时出错:', msgError);
                 }
@@ -242,173 +370,82 @@ async function loadChatHistory() {
         } else {
             console.error('收到的消息不是数组格式:', messages);
         }
-        
-        // 滚动到底部
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
     } catch (error) {
         console.error('加载聊天历史失败:', error);
         showError('无法加载聊天历史');
     }
 }
 
-// 消息缓存，用于避免重复显示
-const messageCache = new Set();
-
 // 发送消息
 function sendMessage() {
     const inputField = document.getElementById('chat-input');
     const message = inputField.value.trim();
     
-    if (!message || !currentFriendQq) return;
+    if (!message || !currentFriendQq) {
+        return;
+    }
     
-    // 生成消息ID用于缓存
-    const localMessageId = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-    messageCache.add(message); // 添加到缓存
-    
-    // 清空输入框 - 提前清空，让用户感觉更快
+    // 清空输入框
     inputField.value = '';
-    
-    // 使用高优先级方式立即显示消息
-    requestAnimationFrame(() => {
-        // 在聊天窗口显示发送的消息
-        addMessage(message, true, new Date().toLocaleTimeString(), localMessageId);
-        
-        // 强制DOM重绘
-        document.body.style.display = 'none';
-        document.body.offsetHeight; // 触发重排
-        document.body.style.display = '';
-        
-        // 确保消息区域滚动到最新消息
-        const messagesContainer = document.getElementById('chat-messages');
-        if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    });
     
     // 发送消息到主进程
     window.electronAPI.sendMessage(currentFriendQq, message);
     
-    // 双重保险：再次确保消息显示并滚动
-    setTimeout(() => {
-        const messagesContainer = document.getElementById('chat-messages');
-        if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    }, 100);
-    
-    // 定期清理消息缓存
-    setTimeout(() => {
-        messageCache.delete(message);
-    }, 60000); // 1分钟后清理
+    // 尝试添加到UI，但不等待确认
+    // 真实消息会在onMessageSentConfirmed回调中添加
+    queueMessage({
+        content: message,
+        isOutgoing: true,
+        time: new Date().toLocaleTimeString()
+    });
 }
 
-// 添加消息到聊天窗口
-function addMessage(message, isOutgoing, time = new Date().toLocaleTimeString(), messageId = null) {
-    try {
-        const messagesContainer = document.getElementById('chat-messages');
-        if (!messagesContainer) {
-            console.error('找不到消息容器元素');
-            return;
-        }
-        
-        // 确保消息是字符串类型
-        if (typeof message !== 'string') {
-            console.error('消息不是字符串类型:', message);
-            message = String(message || '');
-        }
-        
-        // 检查消息是否在缓存中（防止重复显示）
-        if (!isOutgoing && messageCache.has(message)) {
-            console.log('消息已在缓存中，不重复添加');
-            return;
-        }
-        
-        // 检查消息是否已经存在于DOM中
-        const formattedContent = formatMessage(message);
-        const existingMessages = messagesContainer.querySelectorAll('.message-content');
-        for (const existing of existingMessages) {
-            if (existing.innerHTML === formattedContent) {
-                console.log('消息已存在于DOM中，不重复添加');
-                return;
-            }
-        }
-        
-        // 如果是接收的消息，添加到缓存
-        if (!isOutgoing) {
-            messageCache.add(message);
-            // 1分钟后从缓存中移除
-            setTimeout(() => messageCache.delete(message), 60000);
-        }
-        
-        const messageElement = document.createElement('div');
-        messageElement.className = `message-container ${isOutgoing ? 'outgoing' : 'incoming'}`;
-        if (messageId) {
-            messageElement.dataset.messageId = messageId;
-        }
-        
-        try {
-            messageElement.innerHTML = `
-                <div class="message-bubble">
-                    <div class="message-content">${formattedContent}</div>
-                    <div class="message-time">${time}</div>
-                </div>
-            `;
-        } catch (formatError) {
-            console.error('格式化消息内容时出错:', formatError);
-            messageElement.innerHTML = `
-                <div class="message-bubble">
-                    <div class="message-content">消息内容无法显示</div>
-                    <div class="message-time">${time}</div>
-                </div>
-            `;
-        }
-        
-        messagesContainer.appendChild(messageElement);
-        
-        // 确保滚动到底部
-        requestAnimationFrame(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        });
-    } catch (error) {
-        console.error('添加消息到聊天窗口时出错:', error);
-    }
-}
-
-// 格式化消息内容（处理换行符等）
+// 格式化消息内容，支持简单的富文本
 function formatMessage(message) {
-    try {
-        if (typeof message !== 'string') {
-            console.error('格式化消息时收到非字符串类型:', message);
-            return String(message || '');
-        }
-        return message.replace(/\n/g, '<br>');
-    } catch (error) {
-        console.error('格式化消息时出错:', error);
-        return '消息格式化错误';
-    }
+    if (!message) return '';
+    
+    // 对消息内容进行HTML转义，防止XSS攻击
+    const escapeHtml = (text) => {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    };
+    
+    let formattedMessage = escapeHtml(message);
+    
+    // 替换换行符为<br>标签
+    formattedMessage = formattedMessage.replace(/\n/g, '<br>');
+    
+    // 识别URL并转换为链接
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    formattedMessage = formattedMessage.replace(urlRegex, '<a href="$1" target="_blank">$1</a>');
+    
+    return formattedMessage;
 }
 
-// 显示错误消息
+// 显示错误提示
 function showError(message) {
-    const messagesContainer = document.getElementById('chat-messages');
-    if (!messagesContainer) return;
+    const errorContainer = document.createElement('div');
+    errorContainer.className = 'error-message';
+    errorContainer.textContent = message;
     
-    const errorElement = document.createElement('div');
-    errorElement.className = 'error-message';
-    errorElement.textContent = message;
+    document.body.appendChild(errorContainer);
     
-    messagesContainer.appendChild(errorElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    
-    // 3秒后自动移除错误消息
+    // 2秒后淡出并移除
     setTimeout(() => {
-        errorElement.remove();
-    }, 3000);
+        errorContainer.classList.add('fade-out');
+        setTimeout(() => {
+            document.body.removeChild(errorContainer);
+        }, 500);
+    }, 2000);
 }
 
 // 获取状态文本
 function getStatusText(status) {
-    switch (status) {
+    switch(status) {
         case 'online': return '在线';
         case 'away': return '离开';
         case 'busy': return '忙碌';

@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // DOM 元素获取
     const minimizeBtn = document.getElementById('minimize-btn');
-    const maximizeBtn = document.getElementById('maximize-btn');
     const closeBtn = document.getElementById('close-btn');
     const pinBtn = document.getElementById('pin-btn');
     const mainMenuBtn = document.getElementById('main-menu-btn');
@@ -24,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 窗口控制
     minimizeBtn.addEventListener('click', () => window.electronAPI.minimizeWindow());
-    maximizeBtn.addEventListener('click', () => window.electronAPI.maximizeWindow());
     closeBtn.addEventListener('click', () => window.electronAPI.closeWindow());
     
     // 初始化置顶按钮状态
@@ -77,13 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarStatusIcon.addEventListener('click', (e) => {
             console.log('状态图标被点击');
             e.stopPropagation();
+            e.preventDefault();
             toggleStatusMenu(e);
         });
     }
 
     if (statusMenuPopup) {
         console.log('添加状态菜单点击事件');
+        
+        // 防止点击菜单时关闭菜单
         statusMenuPopup.addEventListener('click', (e) => {
+            e.stopPropagation();
             console.log('状态菜单被点击', e.target);
             const statusItem = e.target.closest('li');
             if (statusItem) {
@@ -91,32 +93,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('选择状态:', status);
                 updateStatus(status);
                 
-                // 使用平滑过渡效果隐藏菜单
-                statusMenuPopup.classList.remove('show');
-                setTimeout(() => {
-                    if (!statusMenuPopup.classList.contains('show')) {
-                        statusMenuPopup.style.display = 'none';
-                    }
-                }, 200);
+                // 直接隐藏菜单
+                statusMenuPopup.style.display = 'none';
             }
         });
     }
 
     // 点击其他地方关闭菜单
     document.addEventListener('click', (e) => {
+        // 关闭主菜单
         if (!mainMenuPopup.contains(e.target) && e.target.id !== 'main-menu-btn') {
             mainMenuPopup.classList.remove('show');
         }
         
+        // 关闭状态菜单
         const statusMenuPopup = document.getElementById('status-menu-popup');
-        if (!statusMenuPopup.contains(e.target) && e.target.id !== 'avatar-status-icon') {
-            // 使用平滑过渡效果隐藏菜单
-            statusMenuPopup.classList.remove('show');
-            setTimeout(() => {
-                if (!statusMenuPopup.classList.contains('show')) {
-                    statusMenuPopup.style.display = 'none';
-                }
-            }, 200);
+        if (statusMenuPopup && !statusMenuPopup.contains(e.target) && e.target.id !== 'avatar-status-icon') {
+            console.log('点击了状态菜单外部，隐藏菜单');
+            statusMenuPopup.style.display = 'none';
         }
     });
 
@@ -141,6 +135,9 @@ function initializeUserInfo() {
 
 // 添加一个标志，表示是否正在进行状态更新操作
 let isStatusUpdateInProgress = false;
+// 添加请求ID跟踪
+let lastStatusUpdateId = 0;
+let pendingStatusUpdates = new Map();
 
 window.electronAPI.onUserInfo((user) => {
     if (!user) {
@@ -162,14 +159,23 @@ window.electronAPI.onUserInfo((user) => {
         audio.play().catch(e => console.error('播放上线提示音失败:', e));
     }
     
+    // 检查状态更新逻辑
     if (isStatusUpdate) {
         console.log(`检测到状态更新: ${previousUser.status} -> ${user.status}`);
         
-        // 如果当前正在进行状态更新操作，且服务器返回的状态与用户选择的状态不一致，可能是由于竞态条件
+        // 如果当前正在进行状态更新操作，跳过服务器返回的状态更新
         if (isStatusUpdateInProgress) {
             console.log('检测到状态更新操作正在进行中，跳过服务器自动更新');
-            console.log('当前正在处理的状态更新:', previousUser.status, ' -> ', user.status);
             return;
+        }
+        
+        // 检查是否有最新的待处理状态更新
+        if (pendingStatusUpdates.size > 0 && lastStatusUpdateId > 0) {
+            const latestUpdate = pendingStatusUpdates.get(lastStatusUpdateId);
+            if (latestUpdate && latestUpdate.status !== user.status) {
+                console.warn(`服务器返回状态 ${user.status} 与最新请求状态 ${latestUpdate.status} 不匹配，保持最新请求状态`);
+                return;
+            }
         }
     }
     
@@ -243,14 +249,31 @@ window.electronAPI.onFriendOnline((payload) => {
 window.electronAPI.onUnreadMessages((unreadMessages) => {
     console.log('收到未读消息通知:', unreadMessages);
     
-    // 先移除所有闪烁效果
-    document.querySelectorAll('.avatar-flashing').forEach(element => {
-        element.classList.remove('avatar-flashing');
+    // 获取所有好友元素
+    const friendElements = document.querySelectorAll('.friend-item');
+    
+    // 先清除所有未读消息和闪烁效果
+    friendElements.forEach(element => {
+        const avatar = element.querySelector('.friend-avatar');
+        const unreadBadge = element.querySelector('.unread-badge');
+        
+        // 检查该好友是否有未读消息
+        const friendQq = element.dataset.qq;
+        const hasUnread = unreadMessages && unreadMessages[friendQq] > 0;
+        
+        // 如果没有未读消息，清除闪烁效果和徽章
+        if (!hasUnread) {
+            if (avatar) avatar.classList.remove('avatar-flashing');
+            if (unreadBadge) unreadBadge.style.display = 'none';
+        }
     });
     
-    // 遍历所有有未读消息的好友
+    // 遍历有未读消息的好友
     for (const friendQq in unreadMessages) {
         const count = unreadMessages[friendQq];
+        
+        // 如果没有未读消息，跳过
+        if (!count || count <= 0) continue;
         
         // 找到对应的好友元素
         const friendElement = document.querySelector(`.friend-item[data-qq="${friendQq}"]`);
@@ -260,7 +283,8 @@ window.electronAPI.onUnreadMessages((unreadMessages) => {
             if (!unreadBadge) {
                 unreadBadge = document.createElement('span');
                 unreadBadge.className = 'unread-badge';
-                friendElement.querySelector('.friend-info').appendChild(unreadBadge);
+                // 直接添加到好友列表项
+                friendElement.appendChild(unreadBadge);
             }
             
             // 设置未读消息数量
@@ -268,20 +292,41 @@ window.electronAPI.onUnreadMessages((unreadMessages) => {
             unreadBadge.style.display = 'block';
             
             // 添加头像闪烁效果
-            const avatar = friendElement.querySelector('.avatar');
+            const avatar = friendElement.querySelector('.friend-avatar');
             if (avatar) {
                 avatar.classList.add('avatar-flashing');
+            }
+            
+            // 将该好友移动到列表顶部
+            const friendsList = document.getElementById('friends-list');
+            if (friendsList && friendsList.firstChild !== friendElement) {
+                friendsList.insertBefore(friendElement, friendsList.firstChild);
             }
         }
     }
 });
 
+// 用于跟踪消息处理状态的Map
+const messageProcessingStatus = new Map();
+
 // 监听收到新消息
 window.electronAPI.onMessageReceived((data) => {
     const { senderQq } = data;
     
+    // 防止重复处理同一消息
+    const now = Date.now();
+    const lastProcessed = messageProcessingStatus.get(senderQq) || 0;
+    
+    // 如果两次消息处理间隔小于500ms，不重复处理闪烁效果
+    const shouldProcessFullEffect = now - lastProcessed > 500;
+    
+    // 更新最后处理时间
+    messageProcessingStatus.set(senderQq, now);
+    
     // 播放消息提示音
-    window.electronAPI.playSound('MESSAGE');
+    if (shouldProcessFullEffect) {
+        window.electronAPI.playSound('MESSAGE');
+    }
     
     // 找到对应的好友元素
     const friendElement = document.querySelector(`.friend-item[data-qq="${senderQq}"]`);
@@ -291,7 +336,8 @@ window.electronAPI.onMessageReceived((data) => {
         if (!unreadBadge) {
             unreadBadge = document.createElement('span');
             unreadBadge.className = 'unread-badge';
-            friendElement.querySelector('.friend-info').appendChild(unreadBadge);
+            // 将未读消息指示器直接添加到好友项目中
+            friendElement.appendChild(unreadBadge);
         }
         
         // 增加未读消息数量
@@ -299,195 +345,171 @@ window.electronAPI.onMessageReceived((data) => {
         unreadBadge.textContent = currentCount + 1 > 99 ? '99+' : (currentCount + 1);
         unreadBadge.style.display = 'block';
         
-        // 添加头像闪烁效果
-        const avatar = friendElement.querySelector('.avatar');
-        if (avatar) {
-            avatar.classList.add('avatar-flashing');
-        }
-        
-        // 将该好友移动到列表顶部
-        const friendsList = document.getElementById('friends-list');
-        if (friendsList && friendsList.firstChild !== friendElement) {
-            friendsList.insertBefore(friendElement, friendsList.firstChild);
+        // 添加头像闪烁效果，但避免频繁添加
+        if (shouldProcessFullEffect) {
+            const avatar = friendElement.querySelector('.friend-avatar');
+            if (avatar) {
+                // 先移除再添加，确保动画重新开始
+                avatar.classList.remove('avatar-flashing');
+                setTimeout(() => {
+                    avatar.classList.add('avatar-flashing');
+                }, 10);
+            }
+            
+            // 将该好友移动到列表顶部
+            const friendsList = document.getElementById('friends-list');
+            if (friendsList && friendsList.firstChild !== friendElement) {
+                friendsList.insertBefore(friendElement, friendsList.firstChild);
+            }
         }
     }
+    
+    // 5分钟后清除消息处理状态
+    setTimeout(() => {
+        messageProcessingStatus.delete(senderQq);
+    }, 300000); // 5分钟
 });
 
 // 函数定义
 // 状态菜单相关函数
-// 修改状态菜单的显示和隐藏函数
+// 完全重写状态菜单的显示和隐藏函数
 function toggleStatusMenu(event) {
     console.log('切换状态菜单');
     
+    // 获取菜单元素
     const statusMenuPopup = document.getElementById('status-menu-popup');
     if (!statusMenuPopup) {
         console.error('状态菜单元素未找到');
         return;
     }
     
-    // 获取菜单当前可见性状态
-    const isVisible = statusMenuPopup.classList.contains('show');
+    // 检查菜单是否已经可见
+    const isVisible = window.getComputedStyle(statusMenuPopup).display !== 'none';
     
     if (isVisible) {
-        // 如果菜单已显示，则隐藏它（使用CSS过渡效果）
-        statusMenuPopup.classList.remove('show');
-        // 设置一个延迟，等待过渡效果完成后再真正隐藏元素
-        setTimeout(() => {
-            if (!statusMenuPopup.classList.contains('show')) {
-                statusMenuPopup.style.display = 'none';
-            }
-        }, 200); // 与CSS过渡时间一致
+        // 隐藏菜单
+        statusMenuPopup.style.display = 'none';
+        console.log('状态菜单已隐藏');
     } else {
-        // 如果菜单隐藏，则显示它
-        // 先确保元素可见，以便过渡效果可见
-        statusMenuPopup.style.display = 'block';
-        // 使用setTimeout确保display更改已应用，然后添加show类触发过渡
-        setTimeout(() => {
-            statusMenuPopup.classList.add('show');
-        }, 10);
-        
-        // 定位菜单
-        if (event) {
-            const rect = event.target.getBoundingClientRect();
+        // 显示菜单并定位
+        const avatarStatusIcon = document.getElementById('avatar-status-icon');
+        if (avatarStatusIcon) {
+            const rect = avatarStatusIcon.getBoundingClientRect();
+            console.log('头像状态图标位置:', rect);
+            
+            // 强制显示菜单
+            statusMenuPopup.style.display = 'block';
+            statusMenuPopup.style.opacity = '1';
+            statusMenuPopup.style.transform = 'translateY(0)';
+            
+            // 设置位置
             statusMenuPopup.style.top = `${rect.bottom + 5}px`;
-            statusMenuPopup.style.left = `${rect.left}px`;
+            statusMenuPopup.style.right = '10px';
+            statusMenuPopup.style.left = 'auto';
+            
+            console.log('状态菜单已显示');
         }
     }
 }
 
+// 修改状态更新函数
 async function updateStatus(status) {
-    console.log(`---------- 状态更新流程开始 ----------`);
-    console.log(`请求更新状态为: ${status}`);
-    
     if (!window.currentUser) {
-        console.error('未找到当前用户信息，无法更新状态');
-        showNotification('状态更新失败: 未找到当前用户信息', 'error');
+        console.error('无法更新状态：用户未登录');
         return;
     }
-
-    // 如果已经是目标状态，直接返回
-    if (window.currentUser.status === status) {
-        console.log(`当前状态已经是 ${status}，不需要更新`);
-        console.log(`---------- 状态更新流程结束（无需更新）----------`);
-        return;
-    }
-
-    // 保存原始状态，以便在服务器返回失败时恢复
-    const originalStatus = window.currentUser.status;
-    console.log(`保存原始状态: ${originalStatus}`);
     
-    // 设置状态更新进行中标志
-    console.log(`设置状态更新进行中标志`);
-    isStatusUpdateInProgress = true;
+    // 记录用户之前的状态，用于回退
+    const previousStatus = window.currentUser.status;
     
-    // 记录开始时间，用于计算操作耗时
-    const startTime = Date.now();
+    // 生成唯一请求ID
+    const updateId = ++lastStatusUpdateId;
     
     try {
-        // 获取状态图标元素，用于添加过渡效果
-        const statusIconEl = document.getElementById('avatar-status-icon');
-        if (statusIconEl) {
-            // 添加过渡动画效果，减少状态切换时的闪烁感
-            statusIconEl.style.transition = 'background-color 0.3s ease, transform 0.2s ease';
-            // 添加缩放动画，增强反馈
-            statusIconEl.style.transform = 'scale(1.2)';
-            // 短暂延迟后恢复正常大小
-            setTimeout(() => {
-                statusIconEl.style.transform = 'scale(1)';
-            }, 200);
-        }
+        console.log(`开始状态更新操作 #${updateId}: ${previousStatus} -> ${status}`);
+        isStatusUpdateInProgress = true;
         
-        // 先乐观地更新UI
-        console.log(`[UI] 乐观更新UI为新状态: ${status}`);
-        const tempUser = { ...window.currentUser, status: status };
+        // 存储此次更新操作
+        pendingStatusUpdates.set(updateId, {
+            status,
+            previousStatus,
+            timestamp: Date.now()
+        });
         
-        // 立即更新UI，而不等待服务器响应
-        applyUserInfoToUI(tempUser);
-
-        // 添加测试失败功能 - 当状态为"test-fail"时模拟失败
-        if (status === 'test-fail') {
-            console.log('检测到测试失败状态，准备处理测试失败场景');
-        }
+        // 乐观地更新UI
+        optimisticStatusUpdate(status);
         
         // 发送请求到服务器
-        console.log(`[网络] 发送状态更新请求到服务器: QQ=${window.currentUser.qq}, 状态=${status}`);
         const response = await window.electronAPI.updateStatus(window.currentUser.qq, status);
-        console.log(`[网络] 收到服务器响应:`, response);
         
-        // 明确检查响应中的success字段
-        if (!response || response.success === false) {
-            const errorMsg = response?.message || '状态更新失败，未知原因';
-            console.error(`[错误] 服务器返回失败: ${errorMsg}`);
-            throw new Error(errorMsg);
+        // 检查是否为当前最新的状态更新请求
+        if (updateId !== lastStatusUpdateId) {
+            console.warn(`状态更新 #${updateId} 不是最新请求，已被更新请求 #${lastStatusUpdateId} 覆盖`);
+            // 不需要进一步处理，因为有更新的请求
+            return;
         }
-
-        // 服务器请求成功后，更新window.currentUser和本地存储
-        console.log(`[成功] 状态更新请求成功，更新本地数据`);
         
-        // 更新currentUser对象
-        window.currentUser.status = status;
-        console.log(`[数据] 更新全局状态为: ${status}`);
-        
-        // 如果响应中包含user数据，使用它进行完整更新
-        if (response.user) {
-            console.log(`[数据] 使用服务器返回的完整用户数据更新`);
-            window.currentUser = response.user;
+        if (!response.success) {
+            console.error('状态更新失败:', response.message);
             
-            // 再次确保状态字段是正确的
-            if (window.currentUser.status !== status) {
-                console.warn(`[警告] 服务器返回的状态(${window.currentUser.status})与请求的状态(${status})不一致，强制修正`);
-                window.currentUser.status = status;
-            }
+            // 回退状态
+            optimisticStatusUpdate(previousStatus);
+            
+            // 显示错误提示
+            showNotification(`状态更新失败: ${response.message}`, 'error');
+            return;
         }
         
-        // 保存到本地存储
-        localStorage.setItem('currentUser', JSON.stringify(window.currentUser));
-        console.log(`[数据] 用户数据已更新到本地存储`);
+        console.log(`状态更新成功: ${previousStatus} -> ${status}`);
         
-        // 再次更新UI，确保显示正确 - 但避免闪烁
-        requestAnimationFrame(() => {
-            applyUserInfoToUI(window.currentUser);
-        });
+        // 清理已完成的状态更新请求
+        pendingStatusUpdates.delete(updateId);
         
-        // 通知用户状态更新成功
-        const elapsedTime = Date.now() - startTime;
-        console.log(`[成功] 状态更新完成，耗时: ${elapsedTime}ms`);
-        showNotification(`状态已更新为${getStatusText(status)}`, 'success');
-
     } catch (error) {
-        const elapsedTime = Date.now() - startTime;
-        console.error(`[错误] 状态更新失败，耗时: ${elapsedTime}ms，错误: ${error.message}`);
+        console.error('更新状态时出错:', error);
         
-        // 获取状态图标元素，用于添加恢复动画
-        const statusIconEl = document.getElementById('avatar-status-icon');
-        if (statusIconEl) {
-            // 添加轻微抖动动画，表示更新失败
-            statusIconEl.style.animation = 'none';
-            setTimeout(() => {
-                statusIconEl.style.animation = 'shake 0.4s ease-in-out';
-            }, 10);
-        }
+        // 回退状态
+        optimisticStatusUpdate(previousStatus);
         
-        // 恢复原始状态的UI
-        console.log(`[恢复] 开始恢复UI到原始状态: ${originalStatus}`);
-        window.currentUser.status = originalStatus;
-        
-        // 使用requestAnimationFrame确保平滑过渡
-        requestAnimationFrame(() => {
-            applyUserInfoToUI(window.currentUser);
-        });
-        
-        console.log(`[恢复] 恢复UI完成`);
-        
-        // 显示错误通知
-        const errorMessage = error.message || '状态更新失败';
-        showNotification(`状态更新失败: ${errorMessage}`, 'error');
+        // 显示错误提示
+        showNotification('状态更新失败，请稍后重试', 'error');
     } finally {
-        // 清除状态更新进行中标志
-        isStatusUpdateInProgress = false;
-        console.log(`[清理] 已清除状态更新进行中标志`);
-        console.log(`---------- 状态更新流程结束 ----------`);
+        // 延迟一点再重置标志，确保不会与onUserInfo回调冲突
+        setTimeout(() => {
+            isStatusUpdateInProgress = false;
+            console.log('状态更新操作完成，重置状态更新标志');
+        }, 500);
     }
+}
+
+// 乐观的UI更新函数，用于在服务器响应前更新UI
+function optimisticStatusUpdate(status) {
+    if (!window.currentUser) return;
+    
+    // 更新全局状态
+    window.currentUser.status = status;
+    
+    // 更新状态图标
+    updateStatusIcon(status);
+    
+    // 保存到本地存储
+    try {
+        localStorage.setItem('currentUser', JSON.stringify(window.currentUser));
+    } catch (error) {
+        console.error('保存用户状态到本地存储失败:', error);
+    }
+}
+
+// 更新状态图标
+function updateStatusIcon(status) {
+    const statusIcon = document.getElementById('avatar-status-icon');
+    if (!statusIcon) return;
+    
+    // 移除所有状态类名
+    statusIcon.classList.remove('online', 'away', 'busy', 'invisible');
+    
+    // 添加新状态类名
+    statusIcon.classList.add(status);
 }
 
 // 显示通知的辅助函数
@@ -781,7 +803,6 @@ function renderFriendList(groups) {
                     <div class="friend-info">
                         <div class="friend-name-row">
                             <div class="friend-name">${friend.nickname}</div>
-                            <div class="friend-status">${statusText}</div>
                         </div>
                         <div class="friend-signature">${friend.signature || ''}</div>
                     </div>
@@ -1100,6 +1121,26 @@ function openChatWindow(friend) {
     }
     
     try {
+        // 清除未读消息指示器和闪烁效果
+        const friendElement = document.querySelector(`.friend-item[data-qq="${friend.qq}"]`);
+        if (friendElement) {
+            const unreadBadge = friendElement.querySelector('.unread-badge');
+            if (unreadBadge) {
+                unreadBadge.style.display = 'none';
+                unreadBadge.textContent = '0'; // 清空未读数
+            }
+            
+            const avatar = friendElement.querySelector('.friend-avatar');
+            if (avatar) {
+                avatar.classList.remove('avatar-flashing');
+            }
+            
+            // 清除消息处理状态，避免重复闪烁
+            if (messageProcessingStatus) {
+                messageProcessingStatus.delete(friend.qq);
+            }
+        }
+        
         // 调用API打开独立聊天窗口
         window.electronAPI.openChatWindow(friend.qq);
     } catch (error) {

@@ -1,4 +1,3 @@
-
 try {
   require('electron-reloader')(module);
 } catch (_) {}
@@ -9,49 +8,76 @@ const { pathToFileURL } = require('url');
 const Store = require('electron-store'); // Still used for avatar path
 const axios = require('axios');
 const WebSocket = require('ws');
+const iconv = require('iconv-lite');
 
 // 设置缓存目录
 app.setPath('userData', path.join(__dirname, 'userData'));
 app.setPath('cache', path.join(__dirname, 'cache'));
 
-// 添加控制台日志过滤功能
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-
-console.log = function(...args) {
-  // 禁用所有控制台输出
-  return;
+// 创建统一的日志管理系统
+const logger = {
+    isEnabled: process.env.NODE_ENV !== 'production',
+    
+    // 自定义日志级别
+    levels: {
+        INFO: 'INFO',
+        ERROR: 'ERROR',
+        WARN: 'WARN',
+        DEBUG: 'DEBUG'
+    },
+    
+    // 自定义输出函数
+    log(level, ...args) {
+        if (!this.isEnabled) return;
+        
+        const timestamp = new Date().toISOString();
+        const prefix = `[${timestamp}] [${level}]`;
+        
+        if (level === this.levels.ERROR) {
+            console.error(prefix, ...args);
+        } else {
+            console.log(prefix, ...args);
+        }
+    },
+    
+    // 便捷方法
+    info(...args) { this.log(this.levels.INFO, ...args); },
+    error(...args) { this.log(this.levels.ERROR, ...args); },
+    warn(...args) { this.log(this.levels.WARN, ...args); },
+    debug(...args) { this.log(this.levels.DEBUG, ...args); },
+    
+    // 完全禁用所有日志
+    disable() {
+        this.isEnabled = false;
+    },
+    
+    // 启用日志
+    enable() {
+        this.isEnabled = true;
+    }
 };
 
-console.error = function(...args) {
-  // 禁用所有控制台输出
-  return;
-};
-
-function wrapMethod(obj, method, wrapper) {
-  const original = obj[method].bind(obj);
-  obj[method] = wrapper(original);
-}
-
-// 解决在 Windows 终端中输出中文乱码的问题
+// 在Windows平台上禁用日志以避免中文乱码问题
 if (process.platform === 'win32') {
-  const iconv = require('iconv-lite');
-  const streams = [process.stdout, process.stderr];
+    logger.disable();
+    
+    // 处理底层stdout/stderr的写入
+    const streams = [process.stdout, process.stderr];
 
-  streams.forEach(stream => {
-      wrapMethod(stream, 'write', (originalWrite) => (chunk, encoding, callback) => {
-          if (typeof chunk === 'string') {
-              chunk = iconv.encode(chunk, 'gbk');
-              encoding = 'buffer';
-          } else if (Buffer.isBuffer(chunk) && encoding !== 'buffer') {
-              // 如果是Buffer但不是我们转换的，我们假设它是UTF8
-              chunk = iconv.encode(chunk.toString(), 'gbk');
-              encoding = 'buffer';
-          }
-          return originalWrite.call(stream, chunk, encoding, callback);
-      });
-  });
+    streams.forEach(stream => {
+        const originalWrite = stream.write.bind(stream);
+        stream.write = (chunk, encoding, callback) => {
+            // 直接禁用输出
+            if (callback) callback();
+            return true;
+        };
+    });
 }
+
+// 替换原始的console方法
+console.log = (...args) => logger.info(...args);
+console.error = (...args) => logger.error(...args);
+console.warn = (...args) => logger.warn(...args);
 
 const store = new Store();
 const API_URL = 'http://localhost:3000/api';
@@ -62,6 +88,11 @@ const SOUND_TYPES = {
   MESSAGE: '信息提示音',
   FRIEND_REQUEST: '加好友提示'
 };
+
+function wrapMethod(obj, method, wrapper) {
+  const original = obj[method].bind(obj);
+  obj[method] = wrapper(original);
+}
 
 function createWindow(options, file) {
   const defaultOptions = {
@@ -376,85 +407,174 @@ const handle = (channel, callback) => {
 };
 
 // 消息系统
-let ws;
-let messageQueue = [];
-let pendingMessages = new Map(); // 等待确认的消息
+let ws = null;
+let wsConnected = false;
+let isReconnecting = false;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
-const RECONNECT_DELAY = 1000; // 初始重连延迟为1秒
+const maxReconnectAttempts = 10;
+const initialReconnectDelay = 1000; // 初始重连等待时间（1秒）
+const maxReconnectDelay = 30000; // 最大重连等待时间（30秒）
+let reconnectTimeout = null;
+let heartbeatInterval = null;
+const heartbeatPingInterval = 30000; // 30秒发送一次心跳
 
 // 连接WebSocket
+let wsConnecting = false; // 标记是否正在连接中
+
 function connectWebSocket() {
   if (ws) {
-    try {
-      ws.close();
-    } catch (e) {
-      // 忽略关闭错误
-    }
+    // 清理现有连接
+    clearWebSocketEvents(ws);
+    ws.close();
+  }
+
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    logger.warn('主窗口不存在，无法创建WebSocket连接');
+    return;
+  }
+
+  const currentUserQq = store.get('currentUserQq');
+  if (!currentUserQq) {
+    logger.warn('用户未登录，不创建WebSocket连接');
+    return;
   }
 
   try {
-    console.log('[网络] 正在连接WebSocket服务器...');
-    ws = new WebSocket('ws://localhost:3000');
-    
-    // 设置超时检测
-    const connectionTimeout = setTimeout(() => {
-      if (ws && ws.readyState !== WebSocket.OPEN) {
-        console.error('[网络] WebSocket连接超时');
-        ws.close();
-        handleReconnect();
-      }
-    }, 5000);
+    logger.info(`尝试建立WebSocket连接，用户: ${currentUserQq}，尝试次数: ${reconnectAttempts + 1}`);
+    ws = new WebSocket(`ws://localhost:3000?qq=${currentUserQq}`);
 
-    ws.onopen = () => {
-      console.log('[网络] WebSocket连接已建立');
-      clearTimeout(connectionTimeout);
+    // 设置WebSocket事件处理
+    ws.on('open', () => {
+      wsConnected = true;
+      isReconnecting = false;
       reconnectAttempts = 0; // 重置重连计数
-      
-      // 发送登录信息
-      if (currentUserQq) {
+      logger.info('WebSocket连接已建立');
+
+      // 发送上线通知
+      if (ws && ws.readyState === WebSocket.OPEN) {
         try {
-          ws.send(JSON.stringify({ type: 'login', qq: currentUserQq }));
-        } catch (e) {
-          console.error('[网络] 发送登录信息失败:', e);
+          ws.send(JSON.stringify({
+            type: 'status',
+            status: 'online',
+            qq: currentUserQq
+          }));
+          logger.info('发送上线通知成功');
+        } catch (error) {
+          logger.error('发送上线通知失败:', error);
         }
       }
+
+      // 开始发送心跳包
+      startHeartbeat();
       
-      // 发送所有排队的消息
-      processMessageQueue();
-    };
-    
-    ws.onmessage = handleWebSocketMessage;
+      // 处理消息队列（在连接成功后）
+      setTimeout(processMessageQueue, 500);
+    });
 
-    ws.onerror = (error) => {
-      console.error('[网络错误] WebSocket连接错误:', error);
-    };
+    ws.on('message', handleWebSocketMessage);
 
-    ws.onclose = (event) => {
-      console.log(`[网络] WebSocket连接已关闭，代码: ${event.code}`);
+    ws.on('error', (error) => {
+      logger.error('WebSocket错误:', error.message);
+      if (!isReconnecting) {
+        handleReconnect();
+      }
+    });
+
+    ws.on('close', () => {
+      wsConnected = false;
+      logger.warn('WebSocket连接已关闭');
+      clearInterval(heartbeatInterval);
+      
+      if (!isReconnecting) {
+        handleReconnect();
+      }
+    });
+
+  } catch (error) {
+    logger.error('创建WebSocket连接时出错:', error);
+    if (!isReconnecting) {
       handleReconnect();
-    };
-  } catch (e) {
-    console.error('[网络] 创建WebSocket连接失败:', e);
-    handleReconnect();
+    }
   }
 }
 
-// 处理重连
+// 清理WebSocket事件监听器
+function clearWebSocketEvents(websocket) {
+  if (!websocket) return;
+  
+  websocket.removeAllListeners('open');
+  websocket.removeAllListeners('message');
+  websocket.removeAllListeners('error');
+  websocket.removeAllListeners('close');
+}
+
+// 启动心跳机制
+function startHeartbeat() {
+  // 清除可能存在的心跳定时器
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
+  
+  // 设置新的心跳定时器
+  heartbeatInterval = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        const heartbeatMessage = JSON.stringify({ type: 'heartbeat' });
+        ws.send(heartbeatMessage);
+        logger.debug('发送心跳包');
+      } catch (error) {
+        logger.error('发送心跳包失败:', error);
+        // 如果发送心跳失败，尝试重连
+        if (!isReconnecting) {
+          handleReconnect();
+        }
+      }
+    } else {
+      logger.warn('心跳检测：WebSocket未连接');
+      if (!isReconnecting) {
+        handleReconnect();
+      }
+    }
+  }, heartbeatPingInterval);
+}
+
+// 使用指数退避算法处理重连
 function handleReconnect() {
-  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    console.error('[网络] 达到最大重连次数，停止重连');
+  if (isReconnecting) return;
+  
+  isReconnecting = true;
+  
+  // 清除可能存在的重连定时器
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+  }
+  
+  // 如果超过最大重试次数，停止重连
+  if (reconnectAttempts >= maxReconnectAttempts) {
+    logger.error(`已达到最大重连尝试次数(${maxReconnectAttempts})，停止重连`);
+    isReconnecting = false;
     return;
   }
   
-  reconnectAttempts++;
-  const delay = RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts - 1); // 指数退避
-  console.log(`[恢复] 尝试重新连接WebSocket (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})，延迟: ${delay}ms`);
+  // 使用指数退避算法计算下次重连时间
+  const delay = Math.min(
+    initialReconnectDelay * Math.pow(2, reconnectAttempts),
+    maxReconnectDelay
+  );
   
-  setTimeout(connectWebSocket, delay);
+  // 添加随机抖动，避免多客户端同时重连
+  const jitter = 0.5 * Math.random();
+  const finalDelay = Math.floor(delay * (1 + jitter));
+  
+  logger.warn(`WebSocket将在${finalDelay}毫秒后尝试重连，当前尝试次数: ${reconnectAttempts + 1}/${maxReconnectAttempts}`);
+  
+  reconnectTimeout = setTimeout(() => {
+    reconnectAttempts++;
+    connectWebSocket();
+  }, finalDelay);
 }
 
-// 处理WebSocket消息
+// 处理接收到的WebSocket消息
 async function handleWebSocketMessage(event) {
   try {
     const data = JSON.parse(event.data);
@@ -536,7 +656,7 @@ async function handleWebSocketMessage(event) {
       
       console.log(`[数据] 收到来自 ${sender} 的新消息: ${content}`);
       
-      // 确认消息接收
+      // 立即确认消息接收
       try {
         ws.send(JSON.stringify({
           type: 'ack',
@@ -561,13 +681,18 @@ async function handleWebSocketMessage(event) {
       
       // 如果聊天窗口打开，立即发送消息到聊天窗口
       if (chatWindows[sender]) {
-        // 立即发送消息到渲染进程
+        // 使用高优先级方式立即发送消息到渲染进程
         try {
-          chatWindows[sender].webContents.send('message-received', {
-            message: content,
-            senderQq: sender,
-            timestamp,
-            messageId: id
+          // 使用更高优先级发送消息
+          setImmediate(() => {
+            if (chatWindows[sender] && !chatWindows[sender].isDestroyed()) {
+              chatWindows[sender].webContents.send('message-received', {
+                message: content,
+                senderQq: sender,
+                timestamp,
+                messageId: id
+              });
+            }
           });
           
           // 强制刷新窗口，确保消息显示
@@ -591,7 +716,7 @@ async function handleWebSocketMessage(event) {
         } catch (error) {
           console.error('[错误] 发送消息到聊天窗口失败:', error);
           
-          // 尝试重新发送
+          // 尝试重新发送 - 使用更短的延迟
           setTimeout(() => {
             if (chatWindows[sender] && !chatWindows[sender].isDestroyed()) {
               chatWindows[sender].webContents.send('message-received', {
@@ -601,7 +726,7 @@ async function handleWebSocketMessage(event) {
                 messageId: id
               });
             }
-          }, 500);
+          }, 100);  // 缩短延迟时间
         }
       }
       return;
@@ -626,138 +751,268 @@ async function handleWebSocketMessage(event) {
   }
 }
 
-// 发送消息
-function sendMessage(receiverQq, message, chatWindow) {
-  if (!currentUserQq || !ws || ws.readyState !== WebSocket.OPEN) {
-    console.error('[错误] 无法发送消息: 未连接到服务器');
-    return false;
-  }
+// 添加消息缓存机制
+const messageCache = {
+  // 存储用户之间的消息历史
+  history: {},
+  // 存储待发送的消息队列
+  queue: {},
+  // 存储消息发送确认状态
+  confirmations: new Map(),
+  // 最大缓存消息数量
+  maxCachedMessages: 100,
   
-  const clientMessageId = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-  
-  try {
-    // 将消息添加到待确认列表
-    pendingMessages.set(clientMessageId, {
-      receiverQq,
-      message,
-      timestamp: Date.now(),
-      chatWindow,
-      attempts: 0,
-      received: false
+  // 添加消息到缓存
+  addMessage(senderQq, receiverQq, message, messageId, timestamp) {
+    const key = this.getCacheKey(senderQq, receiverQq);
+    
+    if (!this.history[key]) {
+      this.history[key] = [];
+    }
+    
+    // 添加新消息
+    this.history[key].push({
+      sender: senderQq,
+      receiver: receiverQq,
+      content: message,
+      messageId,
+      timestamp: timestamp || Date.now(),
+      status: 'sent'  // 状态：sent, delivered, read
     });
     
-    // 发送消息
-    ws.send(JSON.stringify({
-      type: 'send-message',
+    // 如果超过最大缓存数量，删除最旧的消息
+    if (this.history[key].length > this.maxCachedMessages) {
+      this.history[key].shift();
+    }
+    
+    return this.history[key][this.history[key].length - 1];
+  },
+  
+  // 获取两个用户之间的消息历史
+  getHistory(userQq, otherQq) {
+    // 尝试两种组合的键
+    const key1 = this.getCacheKey(userQq, otherQq);
+    const key2 = this.getCacheKey(otherQq, userQq);
+    
+    // 合并两个方向的消息并按时间排序
+    const messages1 = this.history[key1] || [];
+    const messages2 = this.history[key2] || [];
+    const combined = [...messages1, ...messages2];
+    
+    return combined.sort((a, b) => a.timestamp - b.timestamp);
+  },
+  
+  // 添加消息到发送队列
+  queueMessage(senderQq, receiverQq, message) {
+    const key = this.getCacheKey(senderQq, receiverQq);
+    
+    if (!this.queue[key]) {
+      this.queue[key] = [];
+    }
+    
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    this.queue[key].push({
+      sender: senderQq,
+      receiver: receiverQq,
+      content: message,
+      messageId,
+      timestamp: Date.now(),
+      retries: 0
+    });
+    
+    return messageId;
+  },
+  
+  // 获取下一条要发送的消息
+  getNextMessage(senderQq, receiverQq) {
+    const key = this.getCacheKey(senderQq, receiverQq);
+    if (!this.queue[key] || this.queue[key].length === 0) return null;
+    
+    return this.queue[key][0];
+  },
+  
+  // 移除已发送的消息
+  removeFromQueue(senderQq, receiverQq, messageId) {
+    const key = this.getCacheKey(senderQq, receiverQq);
+    if (!this.queue[key]) return false;
+    
+    const index = this.queue[key].findIndex(msg => msg.messageId === messageId);
+    if (index !== -1) {
+      this.queue[key].splice(index, 1);
+      return true;
+    }
+    
+    return false;
+  },
+  
+  // 标记消息为已确认
+  markConfirmed(messageId) {
+    this.confirmations.set(messageId, true);
+  },
+  
+  // 检查消息是否已确认
+  isConfirmed(messageId) {
+    return this.confirmations.has(messageId);
+  },
+  
+  // 获取缓存键
+  getCacheKey(user1Qq, user2Qq) {
+    // 确保键的一致性，无论发送方和接收方的顺序如何
+    return user1Qq < user2Qq ? `${user1Qq}_${user2Qq}` : `${user2Qq}_${user1Qq}`;
+  },
+  
+  // 清除特定用户的所有缓存
+  clearUserCache(userQq) {
+    // 删除与该用户相关的所有历史记录和队列
+    for (const key in this.history) {
+      if (key.includes(userQq)) {
+        delete this.history[key];
+      }
+    }
+    
+    for (const key in this.queue) {
+      if (key.includes(userQq)) {
+        delete this.queue[key];
+      }
+    }
+  }
+};
+
+// 优化发送消息函数
+function sendMessage(receiverQq, message, chatWindow) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    logger.warn('WebSocket未连接，无法发送消息');
+    
+    // 将消息加入队列，等待重连后发送
+    const messageId = messageCache.queueMessage(currentUserQq, receiverQq, message);
+    
+    // 通知渲染进程消息将在重连后发送
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      chatWindow.webContents.send('message-send-pending', {
+        receiverQq,
+        message,
+        messageId
+      });
+    }
+    
+    return messageId;
+  }
+  
+  try {
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const timestamp = Date.now();
+    
+    // 构建消息对象
+    const messageObj = {
+      type: 'message',
       sender: currentUserQq,
       receiver: receiverQq,
       content: message,
-      clientMessageId
-    }));
+      messageId,
+      timestamp
+    };
     
-    // 设置消息确认超时
-    setTimeout(() => {
-      checkMessageConfirmation(clientMessageId);
-    }, 3000);
+    // 添加到缓存
+    messageCache.addMessage(currentUserQq, receiverQq, message, messageId, timestamp);
     
-    return true;
+    // 发送消息
+    ws.send(JSON.stringify(messageObj));
+    logger.info(`发送消息到 ${receiverQq}: ${message.substring(0, 30)}${message.length > 30 ? '...' : ''}`);
+    
+    // 设置确认超时检查
+    setTimeout(() => checkMessageConfirmation(messageId), 3000);
+    
+    return messageId;
   } catch (error) {
-    console.error('[错误] 发送消息失败:', error);
+    logger.error('发送消息时出错:', error);
     
-    // 加入队列，稍后重试
-    messageQueue.push({
-      type: 'send-message',
-      receiverQq,
-      message,
-      clientMessageId,
-      chatWindow
-    });
+    // 通知渲染进程消息发送失败
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      chatWindow.webContents.send('message-send-failed', {
+        receiverQq,
+        message
+      });
+    }
     
-    return false;
+    return null;
   }
 }
 
 // 检查消息确认状态
 function checkMessageConfirmation(clientMessageId) {
-  if (!pendingMessages.has(clientMessageId)) {
-    return; // 消息已确认或已取消
+  // 如果消息已确认，则不做任何处理
+  if (messageCache.isConfirmed(clientMessageId)) {
+    return;
   }
   
-  const pendingMsg = pendingMessages.get(clientMessageId);
+  logger.warn(`消息 ${clientMessageId} 未收到确认，可能发送失败`);
   
-  // 如果消息未被服务器接收
-  if (!pendingMsg.received) {
-    pendingMsg.attempts++;
-    
-    if (pendingMsg.attempts > 3) {
-      // 重试次数过多，通知用户消息可能未发送成功
-      console.error(`[错误] 消息发送失败，重试次数过多: ${clientMessageId}`);
-      
-      if (pendingMsg.chatWindow && !pendingMsg.chatWindow.isDestroyed()) {
-        pendingMsg.chatWindow.webContents.send('message-send-failed', {
-          clientMessageId,
-          message: pendingMsg.message
-        });
-      }
-      
-      pendingMessages.delete(clientMessageId);
-    } else {
-      // 重新发送消息
-      console.log(`[网络] 重新发送消息 (${pendingMsg.attempts}/3): ${clientMessageId}`);
-      
-      try {
-        ws.send(JSON.stringify({
-          type: 'send-message',
-          sender: currentUserQq,
-          receiver: pendingMsg.receiverQq,
-          content: pendingMsg.message,
-          clientMessageId
-        }));
-        
-        // 再次检查确认状态
-        setTimeout(() => {
-          checkMessageConfirmation(clientMessageId);
-        }, 3000);
-      } catch (error) {
-        console.error('[错误] 重新发送消息失败:', error);
-        
-        // 连接可能已断开，加入队列
-        messageQueue.push({
-          type: 'send-message',
-          receiverQq: pendingMsg.receiverQq,
-          message: pendingMsg.message,
-          clientMessageId,
-          chatWindow: pendingMsg.chatWindow
-        });
-        
-        pendingMessages.delete(clientMessageId);
-      }
+  // 找到对应的聊天窗口，通知发送失败
+  const chatWindows = BrowserWindow.getAllWindows();
+  for (const window of chatWindows) {
+    if (window.isFocused() && !window.isDestroyed()) {
+      window.webContents.send('message-confirmation-timeout', {
+        messageId: clientMessageId
+      });
     }
   }
 }
 
 // 处理消息队列
 function processMessageQueue() {
-  if (!ws || ws.readyState !== WebSocket.OPEN || messageQueue.length === 0) {
-    return;
-  }
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
   
-  console.log(`[网络] 处理消息队列，共 ${messageQueue.length} 条消息`);
+  const currentUserQq = store.get('currentUserQq');
+  if (!currentUserQq) return;
   
-  // 复制队列并清空原队列
-  const queue = [...messageQueue];
-  messageQueue = [];
-  
-  // 处理每条消息
-  queue.forEach(item => {
-    if (item.type === 'send-message') {
-      sendMessage(item.receiverQq, item.message, item.chatWindow);
+  // 遍历所有待发送消息队列
+  for (const key in messageCache.queue) {
+    if (messageCache.queue[key].length === 0) continue;
+    
+    const message = messageCache.queue[key][0];
+    
+    // 只处理当前用户发送的消息
+    if (message.sender !== currentUserQq) continue;
+    
+    try {
+      // 更新尝试次数和时间戳
+      message.retries += 1;
+      message.timestamp = Date.now();
+      
+      // 构建消息对象
+      const messageObj = {
+        type: 'message',
+        sender: message.sender,
+        receiver: message.receiver,
+        content: message.content,
+        messageId: message.messageId,
+        timestamp: message.timestamp
+      };
+      
+      // 发送消息
+      ws.send(JSON.stringify(messageObj));
+      logger.info(`从队列发送消息到 ${message.receiver}: ${message.content.substring(0, 30)}${message.content.length > 30 ? '...' : ''}`);
+      
+      // 移除已发送的消息
+      messageCache.removeFromQueue(message.sender, message.receiver, message.messageId);
+      
+      // 设置确认超时检查
+      setTimeout(() => checkMessageConfirmation(message.messageId), 3000);
+    } catch (error) {
+      logger.error('处理消息队列时出错:', error);
+      
+      // 如果重试次数超过限制，则移除消息
+      if (message.retries >= 3) {
+        logger.error(`消息 ${message.messageId} 已达到最大重试次数，放弃发送`);
+        messageCache.removeFromQueue(message.sender, message.receiver, message.messageId);
+      }
     }
-  });
+  }
 }
 
-// 定期检查并处理消息队列
-setInterval(processMessageQueue, 5000);
+// 定期处理消息队列
+setInterval(processMessageQueue, 1000);
 
 app.whenReady().then(() => {
   showApp();
@@ -1452,5 +1707,645 @@ ipcMain.handle('mark-messages-read', async (event, otherQq) => {
   } catch (error) {
     console.error('[错误] 标记消息为已读失败:', error.message);
     return false;
+  }
+}); 
+
+// 错误处理和恢复机制
+const errorHandler = {
+  // 错误历史，用于跟踪错误频率和模式
+  errorHistory: [],
+  // 最大错误历史记录数
+  maxErrorHistory: 20,
+  // 服务状态
+  serviceStatus: {
+    server: true,    // 服务器连接状态
+    db: true,        // 数据库状态
+    network: true    // 网络连接状态
+  },
+  // 崩溃恢复状态
+  recoveryMode: false,
+  
+  // 处理未捕获的异常
+  handleUncaughtException(error) {
+    this.logError('uncaught', error);
+    
+    // 防止应用崩溃，但记录错误
+    logger.error('未捕获的异常:', error);
+    
+    // 检查错误类型并尝试恢复
+    this.attemptRecovery(error);
+  },
+  
+  // 处理未处理的Promise rejection
+  handleUnhandledRejection(reason, promise) {
+    this.logError('promise', reason);
+    
+    // 记录未处理的Promise拒绝
+    logger.error('未处理的Promise拒绝:', reason);
+    
+    // 检查错误类型并尝试恢复
+    this.attemptRecovery(reason);
+  },
+  
+  // 处理渲染进程错误
+  handleRendererProcessCrash(event, webContents, killed) {
+    const windowTitle = webContents.getTitle();
+    logger.error(`渲染进程崩溃: ${windowTitle}, 是否被强制终止: ${killed}`);
+    
+    // 如果是聊天窗口，尝试重新创建
+    if (windowTitle.includes('聊天')) {
+      // 从标题中提取好友QQ号
+      const match = windowTitle.match(/与\s(.+)\s聊天/);
+      if (match && match[1]) {
+        const friendNickname = match[1];
+        // 查找对应的好友信息
+        findFriendByNickname(friendNickname).then(friend => {
+          if (friend) {
+            // 延迟一点再重新创建窗口
+            setTimeout(() => {
+              createChatWindow(friend.qq, friend);
+              notifyUser(`聊天窗口已恢复`, '窗口崩溃恢复');
+            }, 1000);
+          }
+        });
+      }
+    }
+  },
+  
+  // 处理IPC错误
+  handleIpcError(event, channelName, error) {
+    this.logError('ipc', { channelName, error });
+    logger.error(`IPC错误: 通道 ${channelName}, 错误:`, error);
+  },
+  
+  // 记录错误
+  logError(type, error) {
+    // 创建错误记录
+    const errorRecord = {
+      type,
+      message: error.message || String(error),
+      stack: error.stack,
+      timestamp: Date.now()
+    };
+    
+    // 添加到历史记录
+    this.errorHistory.push(errorRecord);
+    
+    // 限制历史记录大小
+    if (this.errorHistory.length > this.maxErrorHistory) {
+      this.errorHistory.shift();
+    }
+    
+    // 分析错误频率，如果短时间内出现多次相同错误，可能需要更严格的恢复措施
+    this.analyzeErrorFrequency(errorRecord);
+  },
+  
+  // 分析错误频率
+  analyzeErrorFrequency(newError) {
+    const lastMinute = Date.now() - 60000; // 1分钟内
+    
+    // 计算最近1分钟内相似错误的数量
+    const similarErrors = this.errorHistory.filter(err => 
+      err.timestamp > lastMinute && 
+      err.message === newError.message
+    );
+    
+    // 如果短时间内出现多次相同错误，进入恢复模式
+    if (similarErrors.length >= 3) {
+      logger.warn(`检测到短时间内多次相同错误，开始恢复过程: ${newError.message}`);
+      this.enterRecoveryMode();
+    }
+  },
+  
+  // 尝试恢复
+  attemptRecovery(error) {
+    // 已经处于恢复模式，跳过
+    if (this.recoveryMode) return;
+    
+    // 根据错误类型采取不同的恢复策略
+    if (error instanceof Error) {
+      // 网络连接错误
+      if (
+        error.message.includes('ECONNREFUSED') || 
+        error.message.includes('ECONNRESET') || 
+        error.message.includes('ETIMEDOUT') ||
+        error.message.includes('getaddrinfo')
+      ) {
+        this.serviceStatus.network = false;
+        this.serviceStatus.server = false;
+        logger.warn('检测到网络连接问题，尝试重新连接WebSocket');
+        handleReconnect();
+      } 
+      // WebSocket错误
+      else if (error.message.includes('WebSocket') || error.message.includes('socket')) {
+        logger.warn('检测到WebSocket错误，重置连接');
+        handleReconnect();
+      }
+      // 数据存储错误
+      else if (error.message.includes('JSON') || error.message.includes('parse')) {
+        this.serviceStatus.db = false;
+        logger.warn('检测到数据格式错误，尝试修复本地存储');
+        this.repairLocalStorage();
+      }
+    }
+  },
+  
+  // 进入恢复模式
+  enterRecoveryMode() {
+    if (this.recoveryMode) return;
+    
+    this.recoveryMode = true;
+    logger.warn('进入应用恢复模式');
+    
+    // 通知所有窗口进入恢复模式
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('enter-recovery-mode');
+      }
+    });
+    
+    // 执行恢复步骤
+    this.performRecoverySteps().then(() => {
+      logger.info('恢复步骤完成，退出恢复模式');
+      this.exitRecoveryMode();
+    }).catch(err => {
+      logger.error('执行恢复步骤时出错:', err);
+      // 即使出错也退出恢复模式，避免卡在恢复状态
+      this.exitRecoveryMode();
+    });
+  },
+  
+  // 退出恢复模式
+  exitRecoveryMode() {
+    this.recoveryMode = false;
+    
+    // 通知所有窗口退出恢复模式
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('exit-recovery-mode');
+      }
+    });
+  },
+  
+  // 执行恢复步骤
+  async performRecoverySteps() {
+    // 1. 重置WebSocket连接
+    if (ws) {
+      try {
+        ws.close();
+      } catch (e) {
+        // 忽略关闭错误
+      }
+    }
+    
+    // 2. 检查并修复本地存储
+    await this.repairLocalStorage();
+    
+    // 3. 重新连接WebSocket
+    connectWebSocket();
+    
+    // 4. 回退到登录页面（如果需要）
+    if (!this.serviceStatus.server || !this.serviceStatus.db) {
+      logger.warn('服务状态异常，即将回退到登录页面');
+      
+      // 保存当前用户信息，以便恢复后重新登录
+      const currentUserQq = store.get('currentUserQq');
+      
+      // 关闭所有窗口，回到登录页面
+      setTimeout(() => {
+        BrowserWindow.getAllWindows().forEach(win => {
+          if (win !== mainWindow && !win.isDestroyed()) {
+            win.close();
+          }
+        });
+        
+        // 回到登录页面
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.loadFile('login.html');
+          mainWindow.show();
+          mainWindow.focus();
+          
+          // 发送错误通知
+          setTimeout(() => {
+            mainWindow.webContents.send('login-recovery-error', {
+              message: '检测到应用异常，已重置连接。请重新登录。',
+              savedQq: currentUserQq
+            });
+          }, 1000);
+        }
+      }, 500);
+    }
+  },
+  
+  // 修复本地存储
+  async repairLocalStorage() {
+    logger.info('尝试修复本地存储');
+    
+    try {
+      // 清理可能损坏的缓存
+      if (store.has('chatCache')) {
+        store.delete('chatCache');
+      }
+      
+      // 重新加载用户信息
+      if (store.has('currentUserQq')) {
+        const userQq = store.get('currentUserQq');
+        try {
+          // 重新从服务器加载用户信息
+          const response = await axios.get(`${API_URL}/users/${userQq}`);
+          if (response.data && response.data.success && response.data.user) {
+            logger.info('成功从服务器恢复用户数据');
+            store.set('currentUser', response.data.user);
+            this.serviceStatus.db = true;
+          }
+        } catch (err) {
+          logger.error('从服务器恢复用户数据失败:', err);
+        }
+      }
+    } catch (error) {
+      logger.error('修复本地存储时出错:', error);
+      // 如果修复失败，可能需要更极端的措施
+      try {
+        store.clear();
+        logger.warn('已清空本地存储');
+      } catch (e) {
+        logger.error('清空本地存储失败:', e);
+      }
+    }
+  }
+};
+
+// 查找好友通过昵称（用于窗口恢复）
+async function findFriendByNickname(nickname) {
+  try {
+    const currentUserQq = store.get('currentUserQq');
+    if (!currentUserQq) return null;
+    
+    const response = await axios.get(`${API_URL}/friends/${currentUserQq}`);
+    if (response.data && response.data.success && response.data.friends) {
+      return response.data.friends.find(friend => friend.nickname === nickname);
+    }
+    return null;
+  } catch (error) {
+    logger.error('通过昵称查找好友时出错:', error);
+    return null;
+  }
+}
+
+// 显示通知给用户
+function notifyUser(message, title = '通知') {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  
+  // 创建原生通知
+  const notification = new Notification({
+    title,
+    body: message,
+    icon: path.join(__dirname, 'assets', 'logo.png')
+  });
+  
+  notification.show();
+  
+  // 同时发送到窗口
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('notification', { title, message });
+    }
+  });
+}
+
+// 注册错误处理器
+process.on('uncaughtException', (error) => {
+  errorHandler.handleUncaughtException(error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  errorHandler.handleUnhandledRejection(reason, promise);
+});
+
+app.on('render-process-crashed', (event, webContents, killed) => {
+  errorHandler.handleRendererProcessCrash(event, webContents, killed);
+});
+
+ipcMain.on('renderer-error', (event, error) => {
+  errorHandler.logError('renderer', error);
+  logger.error('渲染进程报告错误:', error);
+}); 
+
+// 内存管理和优化
+const memoryManager = {
+  // 窗口状态
+  windows: {
+    chat: new Map(),  // 聊天窗口映射: friendQq -> BrowserWindow
+    auxiliary: new Set() // 辅助窗口集合
+  },
+  
+  // 窗口使用情况
+  windowUsage: new Map(), // 窗口 -> { lastActive: timestamp }
+  
+  // 内存使用阈值（MB）
+  memoryThresholds: {
+    warning: 200,
+    critical: 300
+  },
+  
+  // 上次内存检查时间
+  lastMemoryCheck: 0,
+  
+  // 内存检查间隔（ms）
+  memoryCheckInterval: 60000, // 每分钟
+  
+  // 初始化内存管理
+  initialize() {
+    // 定期检查内存使用情况
+    setInterval(() => this.checkMemoryUsage(), this.memoryCheckInterval);
+    
+    // 监听窗口焦点事件
+    app.on('browser-window-focus', (_, window) => {
+      this.updateWindowActivity(window);
+    });
+    
+    // 监听窗口创建事件
+    app.on('browser-window-created', (_, window) => {
+      this.registerWindow(window);
+    });
+  },
+  
+  // 注册窗口
+  registerWindow(window) {
+    // 设置初始使用情况
+    this.updateWindowActivity(window);
+    
+    // 监听窗口关闭
+    window.on('closed', () => {
+      this.windowUsage.delete(window);
+    });
+  },
+  
+  // 更新窗口活动状态
+  updateWindowActivity(window) {
+    if (!window || window.isDestroyed()) return;
+    
+    this.windowUsage.set(window, {
+      lastActive: Date.now()
+    });
+  },
+  
+  // 注册聊天窗口
+  registerChatWindow(friendQq, window) {
+    this.windows.chat.set(friendQq, window);
+    
+    // 监听窗口关闭
+    window.on('closed', () => {
+      this.windows.chat.delete(friendQq);
+    });
+  },
+  
+  // 获取聊天窗口
+  getChatWindow(friendQq) {
+    return this.windows.chat.get(friendQq);
+  },
+  
+  // 检查聊天窗口是否存在
+  hasChatWindow(friendQq) {
+    const win = this.windows.chat.get(friendQq);
+    return win && !win.isDestroyed();
+  },
+  
+  // 注册辅助窗口
+  registerAuxiliaryWindow(window) {
+    this.windows.auxiliary.add(window);
+    
+    // 监听窗口关闭
+    window.on('closed', () => {
+      this.windows.auxiliary.delete(window);
+    });
+  },
+  
+  // 检查内存使用情况
+  async checkMemoryUsage() {
+    try {
+      // 获取进程内存使用
+      const memoryInfo = process.getProcessMemoryInfo();
+      const usedMemoryMB = Math.round(memoryInfo.private / (1024 * 1024));
+      
+      logger.info(`当前内存使用: ${usedMemoryMB} MB`);
+      
+      // 如果超过警告阈值，进行优化
+      if (usedMemoryMB > this.memoryThresholds.warning) {
+        logger.warn(`内存使用超过警告阈值: ${usedMemoryMB} MB`);
+        this.optimizeMemoryUsage(usedMemoryMB);
+      }
+      
+      // 如果超过临界阈值，进行更激进的优化
+      if (usedMemoryMB > this.memoryThresholds.critical) {
+        logger.error(`内存使用超过临界阈值: ${usedMemoryMB} MB`);
+        this.forceFreeMemory();
+      }
+      
+      this.lastMemoryCheck = Date.now();
+    } catch (error) {
+      logger.error('检查内存使用时出错:', error);
+    }
+  },
+  
+  // 优化内存使用
+  optimizeMemoryUsage(currentUsageMB) {
+    // 1. 释放长时间未使用的聊天窗口
+    this.releaseInactiveWindows();
+    
+    // 2. 请求垃圾收集
+    if (global.gc) {
+      logger.info('手动触发垃圾收集');
+      global.gc();
+    }
+    
+    // 3. 请求渲染进程释放内存
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('optimize-memory');
+      }
+    });
+  },
+  
+  // 释放不活跃的窗口
+  releaseInactiveWindows() {
+    const now = Date.now();
+    const inactiveThreshold = 10 * 60 * 1000; // 10分钟
+    
+    // 检查所有窗口的最后活动时间
+    this.windowUsage.forEach((usage, window) => {
+      // 跳过主窗口
+      if (window === mainWindow) return;
+      
+      // 如果窗口长时间未活动
+      if (now - usage.lastActive > inactiveThreshold) {
+        // 如果是聊天窗口，最小化而不是关闭
+        if ([...this.windows.chat.values()].includes(window)) {
+          if (!window.isMinimized() && !window.isDestroyed()) {
+            logger.info('最小化不活跃的聊天窗口');
+            window.minimize();
+          }
+        }
+        // 如果是辅助窗口，可以考虑关闭
+        else if (this.windows.auxiliary.has(window) && !window.isDestroyed()) {
+          logger.info('关闭不活跃的辅助窗口');
+          window.close();
+        }
+      }
+    });
+  },
+  
+  // 强制释放内存
+  forceFreeMemory() {
+    logger.warn('执行强制内存释放');
+    
+    // 1. 关闭所有辅助窗口
+    this.windows.auxiliary.forEach(win => {
+      if (!win.isDestroyed()) {
+        win.close();
+      }
+    });
+    
+    // 2. 最小化所有聊天窗口
+    this.windows.chat.forEach(win => {
+      if (!win.isDestroyed() && !win.isMinimized()) {
+        win.minimize();
+      }
+    });
+    
+    // 3. 清理缓存
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.session.clearCache();
+      mainWindow.webContents.session.clearStorageData({
+        storages: ['appcache', 'cookies', 'filesystem', 'shadercache', 'serviceworkers']
+      });
+    }
+    
+    // 4. 强制垃圾回收
+    if (global.gc) {
+      logger.info('强制垃圾收集');
+      global.gc();
+    }
+  }
+};
+
+// 重写聊天窗口创建函数，使用内存管理器
+function createChatWindow(friendQq, friendInfo) {
+  // 检查聊天窗口是否已经存在
+  let chatWindow = memoryManager.getChatWindow(friendQq);
+  
+  // 如果窗口存在且未销毁，直接显示并激活
+  if (chatWindow && !chatWindow.isDestroyed()) {
+    chatWindow.show();
+    chatWindow.focus();
+    
+    // 更新窗口活动状态
+    memoryManager.updateWindowActivity(chatWindow);
+    
+    // 标记消息为已读
+    ipcMain.invoke('mark-messages-read', friendQq);
+    
+    return chatWindow;
+  }
+  
+  // 创建新窗口
+  chatWindow = new BrowserWindow({
+    width: 550,
+    height: 500,
+    minWidth: 450,
+    minHeight: 400,
+    frame: false,
+    transparent: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      enableRemoteModule: false,
+      spellcheck: true,
+      // 启用内存节省特性
+      backgroundThrottling: true,
+      offscreen: false // 除非绝对必要，否则不要启用这个
+    },
+    show: false // 加载完成后再显示
+  });
+  
+  // 加载聊天窗口HTML
+  chatWindow.loadFile('chat.html');
+  
+  // 注册窗口
+  memoryManager.registerChatWindow(friendQq, chatWindow);
+  
+  // 窗口准备好后再显示
+  chatWindow.once('ready-to-show', () => {
+    chatWindow.show();
+    
+    // 发送好友信息到窗口
+    chatWindow.webContents.send('chat-friend-info', {
+      friendInfo,
+      currentUserQq
+    });
+    
+    // 标记消息为已读
+    ipcMain.invoke('mark-messages-read', friendQq);
+  });
+  
+  // 设置窗口置顶状态
+  // 获取主窗口的置顶状态
+  const mainWindowAlwaysOnTop = mainWindow ? mainWindow.isAlwaysOnTop() : false;
+  chatWindow.setAlwaysOnTop(mainWindowAlwaysOnTop);
+  
+  // 窗口关闭时清理
+  chatWindow.on('closed', () => {
+    clearUnreadMessages(friendQq);
+  });
+  
+  return chatWindow;
+}
+
+// 优化主窗口创建
+function createMainWindow() {
+  const winOptions = {
+    width: 440,
+    height: 600,
+    minWidth: 360,
+    minHeight: 500,
+    show: false,
+    frame: false,
+    transparent: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      enableRemoteModule: false,
+      // 启用内存节省特性
+      backgroundThrottling: true,
+      // 延迟加载，减少初始内存占用
+      webviewTag: false,
+      devTools: process.env.NODE_ENV !== 'production'
+    }
+  };
+  
+  const window = createWindow(winOptions, 'main.html');
+  
+  // 窗口准备好后再显示
+  window.once('ready-to-show', () => {
+    window.show();
+  });
+  
+  // 注册主窗口
+  memoryManager.registerWindow(window);
+  
+  return window;
+}
+
+// 在应用准备好后初始化内存管理
+app.whenReady().then(() => {
+  memoryManager.initialize();
+  
+  // 如果支持，启用垃圾回收
+  if (typeof global.gc === 'function') {
+    logger.info('垃圾回收器可用');
+  } else {
+    logger.warn('垃圾回收器不可用，需要使用 --expose-gc 参数启动应用以启用');
   }
 }); 

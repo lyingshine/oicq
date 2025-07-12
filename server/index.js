@@ -9,19 +9,78 @@ const axios = require('axios'); // Added axios for API calls
 // 添加 iconv-lite 依赖
 const iconv = require('iconv-lite');
 
-// 添加控制台日志过滤功能
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-
-console.log = function(...args) {
-  // 禁用所有控制台输出
-  return;
+// 创建统一的日志管理系统
+const logger = {
+    isEnabled: process.env.NODE_ENV !== 'production',
+    
+    // 自定义日志级别
+    levels: {
+        INFO: 'INFO',
+        ERROR: 'ERROR',
+        WARN: 'WARN',
+        DEBUG: 'DEBUG'
+    },
+    
+    // 自定义输出函数
+    log(level, ...args) {
+        if (!this.isEnabled) return;
+        
+        const timestamp = new Date().toISOString();
+        const prefix = `[${timestamp}] [${level}]`;
+        
+        if (level === this.levels.ERROR) {
+            console.error(prefix, ...args);
+        } else {
+            console.log(prefix, ...args);
+        }
+    },
+    
+    // 便捷方法
+    info(...args) { this.log(this.levels.INFO, ...args); },
+    error(...args) { this.log(this.levels.ERROR, ...args); },
+    warn(...args) { this.log(this.levels.WARN, ...args); },
+    debug(...args) { this.log(this.levels.DEBUG, ...args); },
+    
+    // 完全禁用所有日志
+    disable() {
+        this.isEnabled = false;
+    },
+    
+    // 启用日志
+    enable() {
+        this.isEnabled = true;
+    }
 };
 
-console.error = function(...args) {
-  // 禁用所有控制台输出
-  return;
-};
+// 在Windows平台上禁用日志以避免中文乱码问题
+if (process.platform === 'win32') {
+    logger.disable();
+    
+    // 仍然需要处理底层stdout/stderr的写入
+    const wrapConsoleOutput = () => {
+        const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+        const originalStderrWrite = process.stderr.write.bind(process.stderr);
+
+        // 禁用所有标准输出
+        process.stdout.write = function(chunk, encoding, callback) {
+            if (callback) callback();
+            return true;
+        };
+
+        // 禁用所有错误输出
+        process.stderr.write = function(chunk, encoding, callback) {
+            if (callback) callback();
+            return true;
+        };
+    };
+    
+    wrapConsoleOutput();
+}
+
+// 替换原始的console方法
+console.log = (...args) => logger.info(...args);
+console.error = (...args) => logger.error(...args);
+console.warn = (...args) => logger.warn(...args);
 
 const app = express();
 const PORT = 3000;
@@ -34,41 +93,6 @@ app.use(bodyParser.json());
 process.stdout.setEncoding('utf8');
 process.stderr.setEncoding('utf8');
 
-// 更新的编码处理函数
-function wrapConsoleOutput() {
-    const originalStdoutWrite = process.stdout.write.bind(process.stdout);
-    const originalStderrWrite = process.stderr.write.bind(process.stderr);
-
-    // 禁用所有标准输出
-    process.stdout.write = function(chunk, encoding, callback) {
-        // 不输出任何内容
-        if (callback) callback();
-        return true;
-    };
-
-    // 禁用所有错误输出
-    process.stderr.write = function(chunk, encoding, callback) {
-        // 不输出任何内容
-        if (callback) callback();
-        return true;
-    };
-
-    // 禁用 console.log
-    console.log = function() {
-        return;
-    };
-
-    // 禁用 console.error
-    console.error = function() {
-        return;
-    };
-}
-
-// 在 Windows 平台上应用编码处理
-if (process.platform === 'win32') {
-    wrapConsoleOutput();
-}
-
 // asyncHandler to wrap async routes and catch errors
 const asyncHandler = fn => (req, res, next) => {
     Promise.resolve(fn(req, res, next)).catch(next);
@@ -76,9 +100,12 @@ const asyncHandler = fn => (req, res, next) => {
 
 // Centralized error handler middleware
 const errorHandler = (err, req, res, next) => {
-    // 静默处理错误，不输出到控制台
+    logger.error('服务器错误:', err);
     res.status(500).json({ success: false, message: '服务器错误', error: err.message });
 };
+
+// 注册错误处理中间件
+app.use(errorHandler);
 
 // Helper function to read the database
 const readDB = async () => {
@@ -104,6 +131,7 @@ const readDB = async () => {
         }
         return db;
     } catch (error) {
+        logger.error('读取数据库失败:', error);
         // If the file doesn't exist or is empty, start with a default structure
         return { users: {}, lastQQ: 10000, nicknames: {}, messages: {} };
     }
@@ -111,14 +139,21 @@ const readDB = async () => {
 
 // Helper function to write to the database
 const writeDB = async (data) => {
-    await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2));
+    try {
+        await fs.writeFile(DB_PATH, JSON.stringify(data, null, 2));
+    } catch (error) {
+        logger.error('写入数据库失败:', error);
+        throw error; // 重新抛出以便被错误处理中间件捕获
+    }
 };
 
 // Ensure DB exists before starting
 (async () => {
     try {
         await fs.access(DB_PATH);
+        logger.info('数据库文件已存在');
     } catch (error) {
+        logger.info('数据库文件不存在，创建新数据库');
         await writeDB({ users: {}, lastQQ: 10000, nicknames: {}, messages: {} });
     }
 })();
@@ -190,7 +225,7 @@ app.post('/api/login', asyncHandler(async (req, res) => {
     }
 
     if (user && user.password === password) {
-        console.log('用户登录成功:', qq, user.nickname);
+        logger.info('用户登录成功:', qq, user.nickname);
         res.json({ 
             success: true, 
             message: 'Login successful.',
@@ -233,13 +268,13 @@ app.get('/api/users/:qq', asyncHandler(async (req, res) => {
 // 修改 Get friends list API
 app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
     const { qq } = req.params;
-    console.log(`[SERVER] 获取好友列表请求: QQ=${qq}`);
+    logger.info(`[SERVER] 获取好友列表请求: QQ=${qq}`);
     
         const db = await readDB();
         const user = db.users[qq];
 
         if (!user) {
-            console.error(`[SERVER] 用户不存在: QQ=${qq}`);
+            logger.error(`[SERVER] 用户不存在: QQ=${qq}`);
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
 
@@ -247,7 +282,7 @@ app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
         const friendsDetails = user.friends.map(friendQq => {
             const friendInfo = db.users[friendQq];
             if (!friendInfo) {
-                console.error(`[SERVER] 好友不存在: QQ=${friendQq}`);
+                logger.error(`[SERVER] 好友不存在: QQ=${friendQq}`);
                 return null;
             }
             return {
@@ -260,14 +295,14 @@ app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
             };
         }).filter(Boolean);
 
-        console.log(`[SERVER] 用户 ${qq} 的好友列表: ${friendsDetails.length}个好友`);
-        console.log(`[SERVER] 好友详情样例:`, friendsDetails.length > 0 ? friendsDetails[0] : '无好友');
+        logger.info(`[SERVER] 用户 ${qq} 的好友列表: ${friendsDetails.length}个好友`);
+        logger.debug(`[SERVER] 好友详情样例:`, friendsDetails.length > 0 ? friendsDetails[0] : '无好友');
 
         // 收集好友请求信息
         const requestsDetails = (user.friendRequestsReceived || []).map(requesterQq => {
             const requesterInfo = db.users[requesterQq];
             if (!requesterInfo) {
-                console.error(`[SERVER] 请求者不存在: QQ=${requesterQq}`);
+                logger.error(`[SERVER] 请求者不存在: QQ=${requesterQq}`);
                 return null;
             }
             return {
@@ -278,14 +313,14 @@ app.get('/api/friends/:qq', asyncHandler(async (req, res) => {
             };
         }).filter(Boolean);
 
-        console.log(`[SERVER] 用户 ${qq} 有${requestsDetails.length}个好友请求`);
+        logger.info(`[SERVER] 用户 ${qq} 有${requestsDetails.length}个好友请求`);
 
         const responseData = { 
             success: true, 
             friends: friendsDetails, 
             requests: requestsDetails
         };
-        console.log('[SERVER] 发送好友列表响应:', JSON.stringify(responseData, null, 2));
+        logger.info('[SERVER] 发送好友列表响应:', JSON.stringify(responseData, null, 2));
         res.json(responseData);
 }));
 
@@ -341,20 +376,20 @@ app.post('/api/friends/request', asyncHandler(async (req, res) => {
 // Accept a friend request
 app.post('/api/friends/accept', asyncHandler(async (req, res) => {
     const { userQq, requesterQq } = req.body;
-    console.log(`接受好友请求 - 用户: ${userQq}, 请求方: ${requesterQq}`);
+    logger.info(`接受好友请求 - 用户: ${userQq}, 请求方: ${requesterQq}`);
     
     const db = await readDB();
-    console.log(`数据库读取成功，用户QQ: ${userQq}, 请求方QQ: ${requesterQq}`);
+    logger.info(`数据库读取成功，用户QQ: ${userQq}, 请求方QQ: ${requesterQq}`);
 
     const user = db.users[userQq];
     const requester = db.users[requesterQq];
 
     if (!user || !requester) {
-        console.error('用户或请求方不存在:', { user: !!user, requester: !!requester });
+        logger.error('用户或请求方不存在:', { user: !!user, requester: !!requester });
         return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
-    console.log('当前好友状态:', {
+    logger.debug('当前好友状态:', {
         用户好友列表: user.friends,
         请求方好友列表: requester.friends,
         用户收到的请求: user.friendRequestsReceived,
@@ -363,7 +398,7 @@ app.post('/api/friends/accept', asyncHandler(async (req, res) => {
 
     // 检查是否已经是好友
     if (user.friends.includes(requesterQq) && requester.friends.includes(userQq)) {
-        console.log('已经是好友，无需再次添加');
+        logger.debug('已经是好友，无需再次添加');
         // 返回完整的好友信息
         const newFriendInfo = {
             qq: requesterQq,
@@ -385,14 +420,14 @@ app.post('/api/friends/accept', asyncHandler(async (req, res) => {
     
     if (!user.friends.includes(requesterQq)) {
         user.friends.push(requesterQq);
-        console.log(`将 ${requesterQq} 添加到 ${userQq} 的好友列表中`);
+        logger.debug(`将 ${requesterQq} 添加到 ${userQq} 的好友列表中`);
     }
     if (!requester.friends.includes(userQq)) {
         requester.friends.push(userQq);
-        console.log(`将 ${userQq} 添加到 ${requesterQq} 的好友列表中`);
+        logger.debug(`将 ${userQq} 添加到 ${requesterQq} 的好友列表中`);
     }
 
-    console.log('更新后的好友状态:', {
+    logger.debug('更新后的好友状态:', {
         用户好友列表: user.friends,
         请求方好友列表: requester.friends,
         用户收到的请求: user.friendRequestsReceived,
@@ -401,13 +436,13 @@ app.post('/api/friends/accept', asyncHandler(async (req, res) => {
 
     // 保存到数据库
     await writeDB(db);
-    console.log('数据库更新成功');
+    logger.info('数据库更新成功');
     
     // 重新读取数据库确认更改已保存
     const updatedDb = await readDB();
     const updatedUser = updatedDb.users[userQq];
     const updatedRequester = updatedDb.users[requesterQq];
-    console.log('确认好友关系已保存:', {
+    logger.debug('确认好友关系已保存:', {
         用户好友列表: updatedUser.friends,
         请求方好友列表: updatedRequester.friends
     });
@@ -421,7 +456,7 @@ app.post('/api/friends/accept', asyncHandler(async (req, res) => {
         status: requester.status || 'online'
     };
 
-    console.log('接受好友请求成功，返回新好友信息:', newFriendInfo);
+    logger.info('接受好友请求成功，返回新好友信息:', newFriendInfo);
     res.json({ success: true, message: 'Friend request accepted.', newFriend: newFriendInfo });
 }));
 
@@ -506,12 +541,12 @@ app.post('/api/update-status/:qq', asyncHandler(async (req, res) => {
 
 // 更新用户状态
 app.post('/api/status/update', asyncHandler(async (req, res) => {
-    console.log(`---------- 收到状态更新请求 ----------`);
-    console.log(`请求体:`, req.body);
+    logger.info(`---------- 收到状态更新请求 ----------`);
+    logger.info(`请求体:`, req.body);
     const { qq, status } = req.body;
     
     if (!qq || !status) {
-        console.error(`状态更新失败: 缺少必要参数 - QQ=${qq}, 状态=${status}`);
+        logger.error(`状态更新失败: 缺少必要参数 - QQ=${qq}, 状态=${status}`);
         return res.status(400).json({ 
             success: false, 
             message: 'QQ号和状态都是必需的'
@@ -520,7 +555,7 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
 
     // 测试失败场景
     if (status === 'test-fail') {
-        console.log(`收到测试失败状态请求: QQ=${qq}`);
+        logger.info(`收到测试失败状态请求: QQ=${qq}`);
         return res.status(400).json({
             success: false,
             message: '测试状态更新失败场景'
@@ -530,7 +565,7 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
     // 验证状态值
     const validStatuses = ['online', 'away', 'busy', 'invisible'];
     if (!validStatuses.includes(status)) {
-        console.error(`状态更新失败: 无效的状态值 - ${status}`);
+        logger.error(`状态更新失败: 无效的状态值 - ${status}`);
         return res.status(400).json({ 
             success: false, 
             message: '无效的状态值'
@@ -538,11 +573,11 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
     }
     
     try {
-        console.log(`从数据库读取用户信息: QQ=${qq}`);
+        logger.info(`从数据库读取用户信息: QQ=${qq}`);
         const db = await readDB();
         
         if (!db.users[qq]) {
-            console.error(`状态更新失败: 用户不存在 - QQ=${qq}`);
+            logger.error(`状态更新失败: 用户不存在 - QQ=${qq}`);
             return res.status(404).json({ 
                 success: false, 
                 message: '用户不存在'
@@ -553,18 +588,18 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
         const oldStatus = db.users[qq].status || 'unknown';
         
         // 更新用户状态
-        console.log(`更新状态: QQ=${qq}, 旧状态=${oldStatus}, 新状态=${status}`);
+        logger.info(`更新状态: QQ=${qq}, 旧状态=${oldStatus}, 新状态=${status}`);
         db.users[qq].status = status;
         
         // 写入数据库
-        console.log(`保存状态更新到数据库`);
+        logger.info(`保存状态更新到数据库`);
         await writeDB(db);
 
-        console.log(`用户 ${qq} 状态更新成功: ${oldStatus} -> ${status}`);
+        logger.info(`用户 ${qq} 状态更新成功: ${oldStatus} -> ${status}`);
         
         // 返回完整的用户信息，确保UI可以准确更新
         const user = db.users[qq];
-        console.log(`返回完整用户信息:`, {
+        logger.info(`返回完整用户信息:`, {
             qq,
             nickname: user.nickname,
             signature: user.signature ? (user.signature.length > 20 ? user.signature.substring(0, 20) + '...' : user.signature) : '(无签名)',
@@ -585,7 +620,7 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
         };
         
         res.json(response);
-        console.log(`---------- 状态更新请求处理完成 ----------`);
+        logger.info(`---------- 状态更新请求处理完成 ----------`);
 
         // Notify friends about the status change
         if (user && user.friends) {
@@ -599,13 +634,13 @@ app.post('/api/status/update', asyncHandler(async (req, res) => {
                             status
                         }
                     }));
-                    console.log(`已通知好友 ${friendQq} 关于 ${qq} 的状态更新`);
+                    logger.info(`已通知好友 ${friendQq} 关于 ${qq} 的状态更新`);
                 }
             });
         }
 
     } catch (error) {
-        console.error('更新状态时出错:', error);
+        logger.error('更新状态时出错:', error);
         res.status(500).json({ 
             success: false, 
             message: '更新状态失败',
@@ -787,13 +822,13 @@ app.get('/api/messages/:userQq/:otherQq', asyncHandler(async (req, res) => {
         const { userQq, otherQq } = req.params;
         const limit = parseInt(req.query.limit) || 50; // 默认获取最近50条消息
         
-        console.log(`获取聊天历史: 用户 ${userQq} 与 ${otherQq} 的对话，限制 ${limit} 条`);
+        logger.info(`获取聊天历史: 用户 ${userQq} 与 ${otherQq} 的对话，限制 ${limit} 条`);
         
         const db = await readDB();
         
         // 验证用户是否存在
         if (!db.users[userQq] || !db.users[otherQq]) {
-            console.error(`获取聊天历史失败: 用户不存在 - 用户 ${userQq} 或 ${otherQq}`);
+            logger.error(`获取聊天历史失败: 用户不存在 - 用户 ${userQq} 或 ${otherQq}`);
             return res.status(404).json({ success: false, message: '用户不存在' });
         }
         
@@ -807,7 +842,7 @@ app.get('/api/messages/:userQq/:otherQq', asyncHandler(async (req, res) => {
             // 验证消息格式
             messages = messages.filter(msg => {
                 if (!msg || typeof msg !== 'object') {
-                    console.error('过滤无效消息:', msg);
+                    logger.error('过滤无效消息:', msg);
                     return false;
                 }
                 
@@ -820,14 +855,14 @@ app.get('/api/messages/:userQq/:otherQq', asyncHandler(async (req, res) => {
             });
         }
         
-        console.log(`找到 ${messages.length} 条消息记录`);
+        logger.info(`找到 ${messages.length} 条消息记录`);
         
         // 按时间排序并限制数量
         try {
             messages.sort((a, b) => a.timestamp - b.timestamp);
             messages = messages.slice(-limit);
         } catch (sortError) {
-            console.error('排序消息时出错:', sortError);
+            logger.error('排序消息时出错:', sortError);
         }
         
         res.json({
@@ -835,7 +870,7 @@ app.get('/api/messages/:userQq/:otherQq', asyncHandler(async (req, res) => {
             messages
         });
     } catch (error) {
-        console.error('获取聊天历史时出错:', error);
+        logger.error('获取聊天历史时出错:', error);
         res.status(500).json({ success: false, message: '服务器错误', error: error.message });
     }
 }));
@@ -898,6 +933,9 @@ setInterval(() => {
     }
 }, 30000);
 
+// 存储用户的最后连接信息
+const userConnections = new Map();
+
 // 处理新的WebSocket连接
 wss.on('connection', (ws) => {
     let userQq = null;
@@ -911,10 +949,13 @@ wss.on('connection', (ws) => {
                 try {
                     ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
                 } catch (e) {
-                    // 静默处理错误
+                    // 连接可能已断开但未触发close事件
+                    if (userQq) {
+                        logger.warn(`用户 ${userQq} 的心跳检测失败，可能连接已断开`);
+                    }
                 }
             }
-        }, 15000); // 每15秒发送一次心跳
+        }, 10000); // 每10秒发送一次心跳
     };
     
     startHeartbeat();
@@ -941,6 +982,22 @@ wss.on('connection', (ws) => {
             // 用户登录
             if (data.type === 'login' && data.qq) {
                 userQq = data.qq;
+                
+                // 检查用户是否有断开连接的超时任务
+                const userConnection = userConnections.get(userQq);
+                if (userConnection) {
+                    // 清除之前的离线超时任务
+                    clearTimeout(userConnection.reconnectTimeout);
+                    userConnections.delete(userQq);
+                    logger.info(`用户 ${userQq} 在断开连接后30秒内重新连接，保留在线状态`);
+                } else {
+                    // 通知好友上线
+                    notifyFriendsStatus(userQq, 'online');
+                    // 更新用户状态为在线
+                    updateUserStatus(userQq, 'online');
+                }
+                
+                // 保存连接
                 clients.set(userQq, ws);
                 
                 // 初始化消息队列
@@ -960,9 +1017,6 @@ wss.on('connection', (ws) => {
                         break;
                     }
                 }
-                
-                // 通知好友上线
-                notifyFriendsStatus(userQq, 'online');
                 
                 // 发送未读消息通知
                 sendUnreadMessagesCount(userQq, ws);
@@ -1057,9 +1111,20 @@ wss.on('connection', (ws) => {
             clients.delete(userQq);
             clearInterval(heartbeatInterval);
             
-            // 更新用户状态为离线
-            updateUserStatus(userQq, 'offline');
-            notifyFriendsStatus(userQq, 'offline');
+            // 记录用户断开连接的时间
+            userConnections.set(userQq, {
+                lastDisconnect: Date.now(),
+                reconnectTimeout: setTimeout(() => {
+                    // 如果一定时间内没有重连，才将状态设为离线
+                    if (!clients.has(userQq)) {
+                        // 更新用户状态为离线
+                        updateUserStatus(userQq, 'offline');
+                        notifyFriendsStatus(userQq, 'offline');
+                    }
+                    // 清理记录
+                    userConnections.delete(userQq);
+                }, 30000) // 30秒重连窗口
+            });
         }
     });
     

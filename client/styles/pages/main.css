@@ -1,76 +1,158 @@
+/* 颜色变量 */
+:root {
+    /* 主色调 */
+    --primary-color: #3f98d9;
+    --primary-light: #bfe1ff;
+    --primary-dark: #3a8ccc;
+    
+    /* 状态颜色 */
+    --status-online: #44b549;
+    --status-away: #ffc107;
+    --status-busy: #f44336;
+    --status-invisible: #9e9e9e;
+    
+    /* 中性色 */
+    --text-dark: #000;
+    --text-medium: #666;
+    --text-light: #999;
+    --border-color: #ddd;
+    --bg-light: #f7f7f7;
+    --bg-lighter: #fff;
+    
+    /* 尺寸 */
+    --sidebar-width: 40px;
+}
 
+/* 基础样式 */
 .title-bar {
-    background: linear-gradient(to bottom, #bfe1ff, #89c5f7);
+    background: linear-gradient(to bottom, var(--primary-light), #89c5f7);
     border-bottom: 1px solid #4e94d8;
     color: #003366;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    -webkit-app-region: drag;
+    height: 28px;
+}
+
+.title-bar .title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.window-controls {
+    display: flex;
+    gap: 4px;
+    -webkit-app-region: no-drag;
 }
 
 .window-control {
-    border: 1px solid #6fa8dc;
-    background-color: #a2d2f7;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 3px;
+    background-color: transparent;
     color: #003366;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .window-control:hover {
-    background-color: #cce8ff;
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.window-control i {
+    font-size: 12px;
+}
+
+#close-btn:hover {
+    background-color: #e81123;
+    color: white;
 }
 
 .main-container {
     display: flex;
     flex: 1;
     overflow: hidden;
-    background-color: #3f98d9;
+    background-color: var(--primary-color);
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
 }
 
+/* 侧边栏样式 */
 .sidebar {
-    width: 40px;
+    width: var(--sidebar-width);
     background: linear-gradient(to right, #4998e0, #5aabee);
-    border-right: 1px solid #3a8ccc;
+    border-right: 1px solid var(--primary-dark);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 8px 0;
+    padding: 12px 0;
 }
 
 .sidebar-icons-container {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
 }
 
 .sidebar-icon {
-    width: 40px;
+    width: var(--sidebar-width);
     height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     position: relative;
+    transition: all 0.2s ease;
+    border-radius: 0 4px 4px 0;
 }
 
 .sidebar-icon i {
-    font-size: 20px;
-    color: #fff;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.85);
+    transition: all 0.2s ease;
 }
 
 .sidebar-icon:hover {
-    background-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.sidebar-icon:hover i {
+    color: #fff;
+    transform: scale(1.1);
 }
 
 .sidebar-icon.active {
     background-color: rgba(255, 255, 255, 0.3);
+    box-shadow: -3px 0 0 #fff inset;
 }
 
+.sidebar-icon.active i {
+    color: #fff;
+}
+
+/* 图标定义 */
 .icon-penguin::before { content: "\f007"; }
 .icon-qzone::before { content: "\f005"; }
 .icon-photo::before { content: "\f03e"; }
 .icon-file::before { content: "\f15b"; }
 .icon-yixin::before { content: "\f0e0"; }
 
+/* 通用图标样式 */
+.footer-icon::before { content: none; }
+.icon-menu::before { content: "\f0c9"; }
+.icon-find-friend::before { content: "\f234"; }
+.icon-tools::before { content: "\f013"; }
+.icon-message::before { content: "\f0e0"; }
+.icon-antivirus::before { content: "\f132"; }
+
+/* 头像样式 */
 .avatar-container {
     width: 40px;
     height: 40px;
@@ -81,7 +163,7 @@
 .main-avatar {
     width: 100%;
     height: 100%;
-    border-radius: 3px; /* 保持方形边缘 */
+    border-radius: 3px;
     object-fit: cover;
     border: 1px solid rgba(0, 0, 0, 0.1);
     cursor: pointer;
@@ -92,70 +174,63 @@
     filter: brightness(0.9);
 }
 
+/* 状态图标样式 */
 .status-icon {
     position: absolute;
     bottom: -2px;
     right: -2px;
     width: 12px;
     height: 12px;
-    border-radius: 3px; /* 改为方形 */
+    border-radius: 3px;
     border: 2px solid #fff;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
     transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
-.status-icon.online { background-color: #44b549; }
-.status-icon.away { background-color: #ffc107; }
-.status-icon.busy { background-color: #f44336; }
-.status-icon.invisible { background-color: #9e9e9e; }
-.status-icon.test-fail { background-color: #ff4444; }
+/* 统一状态颜色 */
+.status-icon.online, .status-icon-small.online, .friend-item.online .friend-status, 
+.status-dot.online, .status-menu-popup li i.online, .chat-status.online { 
+    background-color: var(--status-online); 
+    color: var(--status-online);
+}
 
-/* 好友列表中的小状态图标 */
+.status-icon.away, .status-icon-small.away, .friend-item.away .friend-status, 
+.status-dot.away, .status-menu-popup li i.away, .chat-status.away { 
+    background-color: var(--status-away); 
+    color: var(--status-away);
+}
+
+.status-icon.busy, .status-icon-small.busy, .friend-item.busy .friend-status, 
+.status-dot.busy, .status-menu-popup li i.busy, .chat-status.busy { 
+    background-color: var(--status-busy);
+    color: var(--status-busy);
+}
+
+.status-icon.invisible, .status-icon-small.invisible, .status-icon-small.offline,
+.friend-item.invisible .friend-status, .friend-item.offline .friend-status,
+.status-dot.invisible, .status-menu-popup li i.invisible, .chat-status.invisible, .chat-status.offline { 
+    background-color: var(--status-invisible);
+    color: var(--status-invisible);
+}
+
+.status-icon.test-fail {
+    background-color: #ff4444;
+}
+
+/* 小状态图标 */
 .status-icon-small {
     position: absolute;
     bottom: 0;
     right: 0;
     width: 8px;
     height: 8px;
-    border-radius: 3px; /* 方形边角 */
+    border-radius: 3px;
     border: 1px solid #fff;
     box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    z-index: 2;
 }
 
-/* 状态图标颜色 */
-.status-icon-small.online { background-color: #44b549; } /* 绿色 - 在线 */
-.status-icon-small.away { background-color: #ffc107; } /* 黄色 - 离开 */
-.status-icon-small.busy { background-color: #f44336; } /* 红色 - 忙碌 */
-.status-icon-small.invisible, .status-icon-small.offline { background-color: #9e9e9e; } /* 灰色 - 隐身/离线 */
-
-/* 好友状态文本样式 */
-.friend-status {
-    font-size: 11px;
-    margin-bottom: 2px;
-}
-
-/* 不同状态的好友状态文本颜色 */
-.friend-item.online .friend-status { color: #44b549; }
-.friend-item.away .friend-status { color: #ffc107; }
-.friend-item.busy .friend-status { color: #f44336; }
-.friend-item.invisible .friend-status, .friend-item.offline .friend-status { color: #9e9e9e; }
-
-/* 好友项目的不同状态样式 */
-.friend-item.offline .friend-name, 
-.friend-item.offline .friend-signature, 
-.friend-item.invisible .friend-name, 
-.friend-item.invisible .friend-signature { 
-    color: #888; 
-}
-
-.friend-item.offline img, 
-.friend-item.invisible img { 
-    filter: grayscale(100%); 
-    opacity: 0.8; 
-}
-
-/* 已移除侧边栏滚动箭头相关样式 */
-
+/* 主面板样式 */
 .main-panel {
     display: flex;
     flex-direction: column;
@@ -195,12 +270,12 @@
 .nickname {
     font-size: 14px;
     font-weight: bold;
-    color: #000;
+    color: var(--text-dark);
 }
 
 .user-signature {
     font-size: 12px;
-    color: #666;
+    color: var(--text-medium);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -210,45 +285,26 @@
     display: flex;
     align-items: center;
     padding: 8px;
-    background: #f7f7f7;
-    border-bottom: 1px solid #ddd;
+    background: var(--bg-light);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .search-bar input {
     flex: 1;
     height: 24px;
     padding: 0 8px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color);
     border-radius: 3px;
     font-size: 12px;
 }
 
-.tab-header {
-    display: flex;
-    align-items: center;
-    padding: 0;
-    background: #f0f0f0;
-    border-bottom: 1px solid #ddd;
-}
-
-.tab-header span {
-    padding: 6px 12px;
-    font-size: 12px;
-    cursor: pointer;
-    border-right: 1px solid #ddd;
-}
-
-.tab-header span:hover {
-    background: #e5e5e5;
-}
-
+/* 好友列表样式 */
 .friend-list {
-    flex: 1; /* Take up available vertical space */
-    overflow-y: auto; /* Allow scrolling for friend list */
-    background-color: #fff;
+    flex: 1;
+    overflow-y: auto;
+    background-color: var(--bg-lighter);
 }
 
-/* 好友分组样式 */
 .friend-group {
     margin-bottom: 1px;
 }
@@ -256,17 +312,16 @@
 .group-title {
     display: flex;
     align-items: center;
-    padding: 8px;
-    background-color: #f0f0f0;
-    cursor: pointer;
+    background: linear-gradient(to bottom, #f5f5f5, #e5e5e5);
+    padding: 6px 10px;
     font-size: 12px;
-    font-weight: bold;
-    color: #333;
+    cursor: pointer;
+    user-select: none;
 }
 
 .group-title i {
     margin-right: 5px;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s;
 }
 
 .group-title .fa-chevron-right.rotated {
@@ -275,503 +330,297 @@
 
 .group-title .online-count {
     margin-left: auto;
+    color: var(--text-light);
     font-size: 11px;
-    color: #666;
 }
 
 .friend-sublist {
-    list-style: none;
+    display: none;
+    background-color: var(--bg-lighter);
+    list-style-type: none;
     margin: 0;
     padding: 0;
 }
 
 .friend-group-header {
-    border-bottom: 1px solid #f0f0f0;
+    padding: 8px 10px;
+    cursor: pointer;
 }
 
 .friend-group-header:hover {
-    background-color: #f9f9f9;
+    background-color: var(--bg-light);
 }
 
 .friend-item {
     display: flex;
-    padding: 8px;
-    align-items: flex-start;
-    border-bottom: 1px solid #f0f0f0;
-    transition: background-color 0.1s;
+    padding: 6px 10px;
+    cursor: pointer;
+    align-items: center;
+    transition: background-color 0.2s;
 }
 
 .friend-item:hover {
-    background-color: #f5f5f5;
+    background-color: #f0f7ff;
 }
 
 .friend-info {
+    display: flex;
+    flex-direction: column;
+    margin-left: 8px;
     flex: 1;
     min-width: 0;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
 }
 
-/* 好友名称和状态在同一行 */
 .friend-name-row {
     display: flex;
-    align-items: center;
-    margin-bottom: 2px;
+    align-items: baseline;
 }
 
 .friend-name {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: bold;
-    color: #333;
-    margin-right: 6px;
+    color: var(--text-dark);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
 }
 
+/* 状态样式保留但不显示文字 */
 .friend-status {
-    font-size: 11px;
-    display: flex;
-    align-items: center;
+    display: none;
 }
-
-/* 移除状态文本前的小圆点 */
-/* .friend-status::before {
-    content: "";
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    margin-right: 4px;
-} */
-
-/* 不同状态的好友状态文本颜色 */
-.friend-item.online .friend-status { color: #44b549; }
-.friend-item.away .friend-status { color: #ffc107; }
-.friend-item.busy .friend-status { color: #f44336; }
-.friend-item.invisible .friend-status, .friend-item.offline .friend-status { color: #9e9e9e; }
 
 .friend-signature {
     font-size: 11px;
-    color: #666;
+    color: var(--text-medium);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+/* 离线和隐身状态样式 */
+.friend-item.offline .friend-name, 
+.friend-item.offline .friend-signature, 
+.friend-item.invisible .friend-name, 
+.friend-item.invisible .friend-signature { 
+    color: var(--text-light); 
+}
+
+.friend-item.offline img, 
+.friend-item.invisible img { 
+    filter: grayscale(100%); 
+    opacity: 0.8; 
+}
+
+.friend-item.offline .friend-avatar {
+    opacity: 0.6;
+}
+
+.friend-avatar.invisible {
+    opacity: 0.8;
+    filter: grayscale(60%);
+}
+
+.friend-avatar {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.friend-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 底部标签栏 */
 .bottom-tabs {
     display: flex;
-    border-top: 1px solid #ddd;
-    background: #f7f7f7;
+    background-color: var(--bg-light);
+    border-top: 1px solid var(--border-color);
 }
 
 .tab-button {
     flex: 1;
-    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
     font-size: 12px;
-    border: none;
-    background: none;
     cursor: pointer;
-    text-align: center;
-    color: #666;
+    border-right: 1px solid var(--border-color);
 }
 
 .tab-button:hover {
-    background: #e5e5e5;
+    background-color: #e5e5e5;
 }
 
 .tab-button.active {
-    background: #e0eefb;
-    color: #000;
+    background-color: #daeaff;
+    font-weight: bold;
 }
 
+/* 底部工具栏 */
 .footer {
     display: flex;
-    padding: 4px 8px;
-    background: #f7f7f7;
-    border-top: 1px solid #ddd;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: linear-gradient(to bottom, #e0eefb, #c0ddfa);
+    border-top: 1px solid #c5ddec;
 }
 
 .footer-icons-left {
     display: flex;
-    gap: 8px;
+    gap: 12px;
 }
 
 .footer-icon {
-    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin: 0 4px;
-    color: #003366;
     cursor: pointer;
-    border-radius: 5px;
-    transition: background-color 0.2s, box-shadow 0.2s;
     position: relative;
+    color: #1a73e8;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    background-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .footer-icon:hover {
-    background-color: rgba(255, 255, 255, 0.3);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    background-color: rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.15);
 }
 
 .footer-icon i {
     font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.footer-icon:hover i {
+    color: #0d5bdd;
 }
 
 .footer-icon::before {
-    color: #555;
+    content: none; /* 不显示title作为内容 */
 }
 
-.footer-icon:hover::before {
-    color: #007bff;
+.footer-icon .notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #f44336;
+    color: white;
+    border-radius: 50%;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    font-size: 10px;
+    display: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    border: 1px solid white;
 }
 
-.icon-menu::before { content: "\f0c9"; }
-.icon-find-friend::before { content: "\f234"; }
-.icon-tools::before { content: "\f013"; }
-.icon-message::before { content: "\f0e0"; }
-.icon-antivirus::before { content: "\f132"; }
-
+/* 弹出菜单通用样式 */
 .main-menu-popup, .status-menu-popup, .profile-card {
-    background: #fff;
-    border: 1px solid #ccc;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    position: absolute;
+    background-color: #fff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 1000;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .main-menu-popup li:hover, .status-menu-popup li:hover {
     background-color: #f0f0f0;
 }
 
-.profile-card-save {
-    background-color: #2a9d4a;
-}
-.profile-card-save:hover {
-    background-color: #238b41;
-}
-
-.profile-card-cancel {
-    background-color: #aaa;
-}
-.profile-card-cancel:hover {
-    background-color: #888;
-}
-
-.friend-request-actions .accept-btn {
-    background-color: #2a9d4a;
-}
-.friend-request-actions .accept-btn:hover {
-    background-color: #238b41;
-}
-.friend-request-actions .reject-btn {
-    background-color: #d9534f;
-}
-.friend-request-actions .reject-btn:hover {
-    background-color: #c9302c;
-}
-
-/* 添加 request-actions 样式 */
-.request-actions {
-    display: flex;
-    gap: 5px;
-    margin-left: auto;
-}
-
-.request-actions .accept-btn {
-    padding: 4px 8px;
-    background-color: #2a9d4a;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.request-actions .accept-btn:hover {
-    background-color: #238b41;
-}
-
-.request-actions .reject-btn {
-    padding: 4px 8px;
-    background-color: #d9534f;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.request-actions .reject-btn:hover {
-    background-color: #c9302c;
-}
-
-.footer-icon .notification-badge {
-    background-color: #d9534f;
-}
-
+/* 状态菜单 - 增强优先级和可见性 */
 .status-menu-popup {
-    position: absolute;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    min-width: 120px;
+    position: absolute !important;
+    right: 10px !important;
+    top: 45px !important;
+    width: 140px !important;
+    display: none;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 1000 !important;
+    background-color: #fff !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15) !important;
+    border-radius: 6px !important;
+    pointer-events: auto !important;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.status-menu-popup.show {
+    display: block !important;
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    visibility: visible !important;
 }
 
 .status-menu-popup ul {
     list-style: none;
+    padding: 5px 0;
     margin: 0;
-    padding: 0;
 }
 
 .status-menu-popup li {
-    padding: 8px 12px;
     display: flex;
     align-items: center;
+    padding: 10px 15px;
+    font-size: 13px;
     cursor: pointer;
-    font-size: 12px;
-}
-
-.status-menu-popup li:hover {
-    background: #f5f5f5;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 3px; /* 改为方形 */
-    margin-right: 8px;
-    display: inline-block;
-}
-
-.status-dot.online { background-color: #44b549; }
-.status-dot.away { background-color: #ffc107; }
-.status-dot.busy { background-color: #f44336; }
-.status-dot.invisible { background-color: #9e9e9e; } 
-
-.status-menu {
-    position: absolute;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 3px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    z-index: 1000;
-    display: none;
-    min-width: 120px;
-    top: 50px;  /* 默认位置，会被JS覆盖 */
-    left: 50px; /* 默认位置，会被JS覆盖 */
-}
-
-.status-menu ul {
-    list-style: none;
-    margin: 0;
-    padding: 5px 0;
-}
-
-.status-menu li {
-    padding: 6px 15px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 12px;
+    transition: all 0.2s ease;
     color: #333;
 }
 
-.status-menu li:hover {
-    background-color: #f5f5f5;
-}
-
-.status-menu li i {
+.status-menu-popup li i {
+    display: inline-block;
     width: 12px;
     height: 12px;
-    border-radius: 3px; /* 改为方形 */
-    display: inline-block;
+    border-radius: 50%;
+    margin-right: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.status-menu li i.online { background-color: #44b549; }
-.status-menu li i.away { background-color: #ffc107; }
-.status-menu li i.busy { background-color: #f44336; }
-.status-menu li i.invisible { background-color: #9e9e9e; } 
-
-/* 添加通用CSS过渡效果 */
-.notification {
-    transition: opacity 0.3s ease, transform 0.3s ease;
+.status-menu-popup li:hover {
+    background-color: #f5f8ff;
+    color: #0d5bdd;
 }
 
-/* 状态菜单显示/隐藏的平滑过渡 */
-.status-menu-popup, .main-menu-popup {
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: opacity 0.2s ease, transform 0.2s ease, display 0.2s ease;
-    pointer-events: none;
-}
+/* Remove the unused status-dot class */
+/* .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+} */
 
-.status-menu-popup.show, .main-menu-popup.show {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-}
-
-/* 为状态点添加过渡效果 */
-.status-dot {
-    transition: background-color 0.3s ease;
-}
-
-.status-dot.online { background-color: #44b549; }
-.status-dot.away { background-color: #ffc107; }
-.status-dot.busy { background-color: #f44336; }
-.status-dot.invisible { background-color: #9e9e9e; }
-
-/* 为状态菜单项添加过渡效果 */
-.status-menu li i {
-    transition: background-color 0.3s ease;
-}
-
-.status-menu li i.online { background-color: #44b549; }
-.status-menu li i.away { background-color: #ffc107; }
-.status-menu li i.busy { background-color: #f44336; }
-.status-menu li i.invisible { background-color: #9e9e9e; }
-
-/* 为好友列表项添加平滑过渡 */
-.friend-item {
-    transition: opacity 0.3s ease, background-color 0.2s ease;
-}
-
-.friend-item.offline img {
-    transition: filter 0.3s ease, opacity 0.3s ease;
-}
-
-/* 添加帧动画过渡类 */
-.fade-in {
-    animation: fadeIn 0.3s forwards;
-}
-
-.fade-out {
-    animation: fadeOut 0.3s forwards;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeOut {
-    from { opacity: 1; transform: translateY(0); }
-    to { opacity: 0; transform: translateY(-10px); }
-}
-
-/* 添加状态更新失败时的抖动动画 */
-@keyframes shake {
-    0% { transform: translateX(0); }
-    20% { transform: translateX(-2px); }
-    40% { transform: translateX(2px); }
-    60% { transform: translateX(-2px); }
-    80% { transform: translateX(2px); }
-    100% { transform: translateX(0); }
-} 
-
-/* Profile Card Styles */
-.profile-card {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 300px;
-    background-color: #fff;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    z-index: 1001;
-    display: flex;
-    flex-direction: column;
-}
-
-.profile-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    border-bottom: 1px solid #eee;
-}
-
-.profile-card-body {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-}
-
-.profile-avatar-wrapper {
-    position: relative;
-    cursor: pointer;
-}
-
-.profile-card-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 3px; /* 改为方形 */
-    object-fit: cover;
-}
-
-/* 修改头像覆盖层样式 */
-.profile-avatar-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    border-radius: 3px;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.profile-avatar-wrapper:hover .profile-avatar-overlay {
-    opacity: 1;
-}
-
-.profile-card input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.profile-card-footer {
-    padding: 10px 15px;
-    border-top: 1px solid #eee;
-    text-align: right;
-}
-
-.save-btn {
-    padding: 8px 15px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-} 
-
+/* 主菜单 */
 .main-menu-popup {
-    position: absolute;
-    bottom: 38px; /* Position it above the footer */
-    left: 5px;
-    width: 150px;
-    background-color: #f0f8ff;
-    border: 1px solid #a5c7e7;
-    border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    padding: 4px;
+    right: 10px;
+    bottom: 45px;
+    width: 180px;
+    display: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 100;
 }
 
 .main-menu-popup.show {
@@ -782,137 +631,110 @@
 
 .main-menu-popup ul {
     list-style: none;
+    padding: 5px 0;
     margin: 0;
-    padding: 0;
-} 
+}
+
+.main-menu-popup li {
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #333;
+}
+
+.main-menu-popup li i {
+    font-size: 14px;
+    color: #1a73e8;
+    width: 18px;
+    text-align: center;
+}
+
+.main-menu-popup li:hover {
+    background-color: #f5f8ff;
+    color: #0d5bdd;
+}
+
+.main-menu-popup li:hover i {
+    transform: scale(1.1);
+}
 
 .footer-icon#main-menu-btn {
-    background: linear-gradient(to bottom, #f0f8ff, #e0eefb);
-    border: 1px solid #a5c7e7;
-    border-radius: 3px;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(26, 115, 232, 0.1);
+    border: 1px solid rgba(26, 115, 232, 0.2);
 }
 
 .footer-icon#main-menu-btn:hover {
-    background: linear-gradient(to bottom, #d4e8f7, #c5ddec);
-} 
-
-/* 头像选项 */
-.avatar-options {
-    display: flex;
-    justify-content: space-between;
-    margin: 10px 0;
-    width: 100%;
-    gap: 10px;
+    background-color: rgba(26, 115, 232, 0.2);
 }
 
-.avatar-option-btn {
-    flex: 1;
-    padding: 8px;
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s ease;
-}
-
-.avatar-option-btn:hover {
-    background-color: #e0e0e0;
-}
-
-.avatar-option-btn:active {
-    background-color: #d0d0d0;
-} 
-
-/* 置顶按钮样式 */
+/* 窗口置顶按钮 */
 #pin-btn {
-    font-size: 12px;
-    padding: 0;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
 }
 
 #pin-btn i {
-    font-size: 10px;
-    transform: rotate(45deg);
-    transition: transform 0.2s ease, color 0.2s ease;
+    font-size: 12px;
+    color: #003366;
+    transition: all 0.2s ease;
 }
 
 #pin-btn.active i {
-    transform: rotate(0deg);
-    color: #44b549;
-} 
-
-.friend-item.offline {
-    opacity: 0.6;
+    color: #f44336;
+    transform: rotate(45deg);
 }
 
-.friend-item.offline .friend-avatar {
-    filter: grayscale(100%);
+#pin-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
 }
 
-.friend-avatar.invisible {
-    filter: grayscale(100%);
-}
-
-.friend-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 3px;
-    margin-right: 10px;
-    position: relative; /* 添加相对定位 */
-}
-
-/* 添加好友头像中的图片样式 */
-.friend-avatar img {
-    width: 100%;
-    height: 100%;
-    border-radius: 3px;
-    object-fit: cover; /* 确保图片覆盖整个区域并保持比例 */
-    border: 1px solid rgba(0, 0, 0, 0.1);
-} 
-
-/* 好友资料卡样式 */
+/* 好友资料卡片 */
 #friend-profile-card {
-    position: fixed;
+    position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: 300px;
-    max-width: 90%;
-    z-index: 1000;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    background: #fff;
     border-radius: 5px;
-    overflow: hidden;
-    animation: fadeIn 0.2s ease-out;
+    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.2);
+    z-index: 1100;
+    display: none;
 }
 
 #friend-profile-card .profile-card-body {
-    padding: 15px;
+    padding: 20px;
 }
 
 #friend-profile-card .profile-card-body p {
-    margin: 8px 0;
-    font-size: 13px;
+    margin: 10px 0;
+    font-size: 14px;
 }
 
 #friend-profile-card .profile-avatar-wrapper {
+    margin: 0 auto 15px;
     width: 80px;
     height: 80px;
-    margin: 0 auto 15px;
 }
 
 #friend-profile-card .profile-card-footer {
     display: flex;
-    justify-content: space-between;
-    padding: 10px 15px;
+    justify-content: space-around;
+    padding: 10px;
+    border-top: 1px solid #eee;
 }
 
+/* 按钮样式 */
 .chat-btn {
-    padding: 6px 12px;
-    background-color: #44b549;
+    padding: 5px 15px;
+    background: var(--primary-color);
     color: white;
     border: none;
     border-radius: 3px;
@@ -920,12 +742,12 @@
 }
 
 .chat-btn:hover {
-    background-color: #3da142;
+    background: var(--primary-dark);
 }
 
 .delete-btn {
-    padding: 6px 12px;
-    background-color: #f44336;
+    padding: 5px 15px;
+    background: #f44336;
     color: white;
     border: none;
     border-radius: 3px;
@@ -933,227 +755,125 @@
 }
 
 .delete-btn:hover {
-    background-color: #d32f2f;
+    background: #d32f2f;
 }
 
-/* 聊天窗口样式 */
-.chat-window {
+/* 通知和动画 */
+.notification {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    width: 320px;
-    height: 400px;
-    background-color: #fff;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-    z-index: 1000;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    overflow: hidden;
 }
 
-.chat-window.show {
+.status-menu-popup.show {
+    display: block !important;
     opacity: 1;
     transform: translateY(0);
 }
 
-.chat-window.minimized {
-    height: 40px;
-    overflow: hidden;
+.main-menu-popup.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
 }
 
-.chat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 10px;
-    background: linear-gradient(to bottom, #f0f8ff, #e0eefb);
-    border-bottom: 1px solid #c5ddec;
-    cursor: move;
+/* 动画效果 */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
 }
 
-.chat-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.fade-out {
+    animation: fadeOut 0.3s ease-in-out;
 }
 
-.chat-name {
-    font-weight: bold;
-    font-size: 14px;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-.chat-status {
-    font-size: 12px;
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
 }
 
-.chat-status.online { color: #44b549; }
-.chat-status.away { color: #ffc107; }
-.chat-status.busy { color: #f44336; }
-.chat-status.invisible, .chat-status.offline { color: #9e9e9e; }
-
-.chat-controls {
-    display: flex;
-    gap: 5px;
-}
-
-.chat-controls button {
-    width: 20px;
-    height: 20px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 3px;
-}
-
-.chat-controls button:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-}
-
-.chat-messages {
-    flex: 1;
-    padding: 10px;
-    overflow-y: auto;
-    background-color: #f5f5f5;
-}
-
-.chat-welcome {
-    text-align: center;
-    color: #888;
-    font-size: 12px;
-    margin: 10px 0;
-}
-
-.chat-time {
-    font-size: 10px;
-    color: #aaa;
-    margin-top: 2px;
-}
-
-.message-container {
-    display: flex;
-    margin-bottom: 10px;
-}
-
-.message-container.outgoing {
-    justify-content: flex-end;
-}
-
-.message-bubble {
-    max-width: 70%;
-    padding: 8px 12px;
-    border-radius: 8px;
-    position: relative;
-}
-
-.message-container.outgoing .message-bubble {
-    background-color: #d1e9ff;
-    border: 1px solid #b8dcff;
-}
-
-.message-container.incoming .message-bubble {
-    background-color: #fff;
-    border: 1px solid #e0e0e0;
-}
-
-.message-content {
-    font-size: 13px;
-    word-break: break-word;
-}
-
-.message-time {
-    font-size: 10px;
-    color: #888;
-    text-align: right;
-    margin-top: 3px;
-}
-
-.chat-input-area {
-    padding: 10px;
-    border-top: 1px solid #ddd;
-    background-color: #f9f9f9;
-    display: flex;
-    flex-direction: column;
-}
-
-.chat-toolbar {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 5px;
-}
-
-.chat-toolbar button {
-    width: 28px;
-    height: 28px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    border-radius: 3px;
-}
-
-.chat-toolbar button:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-}
-
-.chat-input {
-    width: 100%;
-    height: 60px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    resize: none;
-    font-size: 13px;
-    margin-bottom: 5px;
-}
-
-.send-btn {
-    align-self: flex-end;
-    padding: 5px 15px;
-    background-color: #44b549;
-    color: white;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-}
-
-.send-btn:hover {
-    background-color: #3da142;
-} 
-
-/* 未读消息指示器 */
-.unread-badge {
-    display: none;
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    min-width: 18px;
-    height: 18px;
-    background-color: #f44336;
-    color: white;
-    border-radius: 10px;
-    font-size: 12px;
-    text-align: center;
-    line-height: 18px;
-    padding: 0 5px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    font-weight: bold;
-}
-
-/* 头像闪烁效果 */
-@keyframes avatar-flash {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
+@keyframes shake {
+    0% { transform: translateX(0); }
+    20% { transform: translateX(-5px); }
+    40% { transform: translateX(5px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+    100% { transform: translateX(0); }
 }
 
 .avatar-flashing {
-    animation: avatar-flash 1s infinite;
-    border: 2px solid #f44336 !important;
+    animation: avatar-flash 0.8s infinite alternate;
+}
+
+@keyframes avatar-flash {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
+} 
+
+/* TAB页样式 */
+.tab-header {
+    display: flex;
+    background: linear-gradient(to bottom, #f0f0f0, #e0e0e0);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0;
+}
+
+.tab-header span {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    font-size: 12px;
+    cursor: pointer;
+    border-right: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.tab-header span:last-child {
+    border-right: none;
+}
+
+.tab-header span:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.tab-header span.active {
+    background-color: #fff;
+    border-bottom: 2px solid var(--primary-color);
+    font-weight: bold;
+} 
+
+/* 好友请求按钮样式 */
+.request-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.accept-btn, .reject-btn {
+    padding: 3px 8px;
+    border: none;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.accept-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.accept-btn:hover {
+    background-color: var(--primary-dark);
+}
+
+.reject-btn {
+    background-color: #f44336;
+    color: white;
+}
+
+.reject-btn:hover {
+    background-color: #d32f2f;
 } 
