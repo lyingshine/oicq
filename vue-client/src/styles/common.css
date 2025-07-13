@@ -1,0 +1,91 @@
+/* General Body & Layout */
+html, body {
+    height: 100vh; /* Use viewport height to fill window */
+    margin: 0;
+    padding: 0;
+    font-family: 'Microsoft YaHei', 'SimSun', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden; /* Prevent scrollbars on the body */
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    /* background-color: transparent; */
+    /* transform: translateZ(0); */
+    /* backface-visibility: hidden; */
+    /* perspective: 1000; */
+    /* will-change: transform; */
+}
+
+/* Universal Icon Rule */
+[class*="icon-"]::before, [class*="icon-"]::after, .search-icon, .search-dropdown-icon, .scroll-up, .scroll-down, .footer-icon, .footer-button span {
+    display: inline-block;
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-style: normal;
+    font-variant: normal;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+}
+
+/* Common Title Bar for modal windows */
+.title-bar {
+    height: 32px;
+    line-height: 32px;
+    background: linear-gradient(to bottom, #f0f8ff, #e0eefb);
+    border-bottom: 1px solid #c5ddec;
+    color: #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    flex-shrink: 0;
+    -webkit-app-region: drag;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+.title {
+    font-weight: bold;
+    font-size: 14px;
+}
+.window-controls {
+    display: flex;
+    -webkit-app-region: no-drag;
+}
+.window-control {
+    width: 28px;
+    height: 20px;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    margin-left: 4px;
+    color: #333;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 18px;
+    text-align: center;
+    border-radius: 3px;
+}
+.window-control:hover {
+    background-color: #e0e0e0;
+}
+
+/* Common button styles */
+button {
+    transition: all 0.2s ease;
+}
+
+/* Common error message */
+.error-message {
+    padding: 10px;
+    margin: 10px auto;
+    background-color: #ffebee;
+    border: 1px solid #e57373;
+    color: #c62828;
+    border-radius: 4px;
+    text-align: center;
+    display: none;
+    max-width: 90%;
+} 
